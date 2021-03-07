@@ -1,4 +1,4 @@
-# geeet
+# Welcome to geeet
 
 
 [![image](https://img.shields.io/pypi/v/geeet.svg)](https://pypi.python.org/pypi/geeet)
@@ -8,7 +8,7 @@
 
 
 -   Free software: MIT license
--   Documentation: https://lopezvoliver.github.io/geeet
+-   Documentation: <https://lopezvoliver.github.io/geeet>
     
 
 ## Features
