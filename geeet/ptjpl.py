@@ -854,7 +854,7 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
         Rn = Rn * Mask
         LAI = LAI * Mask
         
-        # output as np.ndstack:
+        # output as np.nstack:
         ET=np.dstack((LE, LEc, LEs, LEi, H, G, Rn))
 
     return ET
