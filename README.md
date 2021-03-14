@@ -22,6 +22,12 @@ This initial release features a PT-JPL model adapted for arid environments (as d
 
 A release will soon be uploaded to pypi and conda-forge. 
 
+## References
+
+References for each model are found in [REFERENCES.txt](REFERENCES.txt). The source code for each module contains references for each function as well. Finally, each model contains two functions to display the references: `cite()` shows the main citation for the model, while `cite_all()` shows all the references for that model.
+
+If you use this package for research, please cite the relevant model. 
+
 ## Contributions
 
 Contributions are welcome. We aim to include as many ET models to allow researchers to intercompare the different models. 

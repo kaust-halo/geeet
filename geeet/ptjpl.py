@@ -16,6 +16,11 @@ pip install earthengine-api
 
 *Exceptions:
     add_fapar - function intended only for ee.Images
+
+References can be found at the end of this module
+They can be printed in python using the following two functions:
+geeet.ptjpl.cite() - main reference for this module
+geeet.ptjpl.cite_all() - all references used for this module
 """
 
 import sys
@@ -43,11 +48,7 @@ def compute_fwet(RH, band_name=None):
         - Fwet (numpy array or ee.Image): the relative surface wetness.
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
     if is_img(RH):
         Fwet = (RH.divide(100.0)).pow(4)
@@ -72,23 +73,11 @@ def compute_fapar(NDVI, NDVIsoil = 0.17, NDVIveg = 0.97, band_name=None):
         green vegetation cover.
     References
     ----------        
-    Carlson, T.N., Capehart, W.J., Gillies, R.R.
-        A new look at the simplified method for remote sensing of daily 
-        evapotranspiration (1995) 
-        Remote Sensing of Environment, 54 (2), pp. 161-167.
-        http://dx.doi.org/10.1016/0034-4257(95)00139-R
-        
-    Choudhury, B.J., Ahmed, N.U., Idso, S.B., Reginato, R.J., Daughtry, C.S.T.
-        Relations between evaporation coefficients and vegetation indices 
-        studied by model simulations (1994) 
-        Remote Sensing of Environment, 50 (1), pp. 1-17.
-        http://dx.doi.org/10.1016/0034-4257(94)90090-6
-        
-    Aragon, B., Houborg, R., Tu, K., Fisher, J.B., McCabe, M.
-        Cubesats enable high spatiotemporal retrievals of crop-water use for 
-        precision agriculture (2018)
-        Remote Sensing, 10 (12), art. no. 1867.
-        http://dx.doi.org/10.3390/rs10121867        
+    Carlson et al., 1995        
+
+    Choudhury et al., 1994        
+
+    Aragon et al., 2018      
     '''
     import numpy as np
 
@@ -135,11 +124,7 @@ def compute_fipar(NDVI, band_name=None):
         total vegetation cover.
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -171,11 +156,7 @@ def compute_fg(NDVI, band_name=None):
         - Fg (numpy array or ee.Image): the green canopy fraction.
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -209,19 +190,9 @@ def compute_ft_arid(T_a, band_name=None):
         - Ft (numpy array or ee.Image): the plant temperature constraint. 
     References
     ----------
-    Potter, C.S., Randerson, J.T., Field, C.B., Matson, P.A., Vitousek, P.M.,
-    Mooney, H.A., Klooster, S.A.
-        Terrestrial ecosystem production: A process model based on global 
-        satellite and surface data (1993) 
-        Global Biogeochemical Cycles, 7 (4), pp. 811-841. 
-        http://dx.doi.org/10.1029/93GB02725
-        
-    Aragon, B., Houborg, R., Tu, K., Fisher, J.B., McCabe, M.
-        Cubesats enable high spatiotemporal retrievals of crop-water use for 
-        precision agriculture (2018)
-        Remote Sensing, 10 (12), art. no. 1867.
-        http://dx.doi.org/10.3390/rs10121867
-        
+    Potter et al., 1993        
+
+    Aragon et al., 2018        
     '''
 
     import numpy as np
@@ -253,11 +224,7 @@ def compute_fm(F_apar, F_aparmax):
         - Fm (numpy array or ee.Image): the plant moisture constraint.
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -292,11 +259,7 @@ def compute_gamma(Pressure, band_name = None):
         - Gamma (numpy array or ee.Image): the psychrometric constant [kPa C-1] 
     References
     ----------
-    Allen, R.G., Pereira, L.S., Raes, D., Smith, M. 
-        Crop evapotranspiration —guidelines for computing crop water requirements
-        (1998) FAO Irrigation and drainage paper 56. Food and Agriculture 
-        Organization, Rome, pp. 32. 
-        http://www.fao.org/docrep/x0490e/x0490e00.htm
+    Allen et al., 1998
     '''
 
     Cp = 1.013*(10 ** -3) # specific heat at constant pressure
@@ -324,12 +287,8 @@ def compute_delta(Temp_C, band_name = None):
         pressure curve [KPa C-1].
     References
     ----------
-    Allen, R.G., Pereira, L.S., Raes, D., Smith, M. 
-        Crop evapotranspiration —guidelines for computing crop water requirements
-        (1998) FAO Irrigation and drainage paper 56. Food and Agriculture 
-        Organization, Rome, pp. 37. 
-        http://www.fao.org/docrep/x0490e/x0490e00.htm
-        http://www.fao.org/3/x0490e/x0490e07.htm#air%20temperature
+    Allen et al., 1998
+    See: http://www.fao.org/3/x0490e/x0490e07.htm#air%20temperature
     '''
 
     import numpy as np
@@ -359,16 +318,9 @@ def compute_apt_delta_gamma(Temp_C, Press, band_name = None):
         - Apt_Delta_Gamma (numpy array or ee.Image):  the PT term
     References
     ----------
-    Priestley, C.H.B. and Taylor, R.J.
-        On the Assessment of Surface Heat Flux and Evaporation Using Large Scale 
-        Parameters (1972) Monthly Weather Review, 100, 81-92.
-        http://dx.doi.org/10.1175/1520-0493(1972)100<0081:OTAOSH>2.3.CO;2
-        
-    Allen, R.G., Pereira, L.S., Raes, D., Smith, M. 
-        Crop evapotranspiration —guidelines for computing crop water requirements
-        (1998) FAO Irrigation and drainage paper 56. Food and Agriculture 
-        Organization, Rome, pp. 37. 
-        http://www.fao.org/docrep/x0490e/x0490e00.htm
+    Priestley and Taylor, 1972        
+
+    Allen et al., 1998
     '''
 
     import numpy as np
@@ -403,11 +355,7 @@ def compute_lai(NDVI, k_par = 0.5, band_name = None):
         - LAI (numpy array or ee.Image): the leaf area index.
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -434,11 +382,7 @@ def compute_rns(Rn, LAI, band_name=None):
         - Rns (numpy array or ee.Image): the net radiation to the soil (W/m2).
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -473,11 +417,7 @@ def compute_rnc(Rn, Rns, band_name=None):
         - Rnc (numpy array or ee.Image): the net radiation to the canopy (W/m2).
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -510,11 +450,7 @@ def compute_vpd(RH, Temp_C, band_name=None):
         - VPD (numpy array or ee.Image): the vapor pressure deficit [kPa].
     References
     ----------
-    Allen, R.G., Pereira, L.S., Raes, D., Smith, M. 
-        Crop evapotranspiration —guidelines for computing crop water requirements
-        (1998) FAO Irrigation and drainage paper 56. Food and Agriculture 
-        Organization, Rome, pp. 35-39. 
-        http://www.fao.org/docrep/x0490e/x0490e00.htm
+    Allen et al., 1998 
     '''
 
     import numpy as np
@@ -559,11 +495,7 @@ def compute_fsm(RH, Temp_C, Beta = 1.0, band_name=None):
         - Fsm (numpy array or ee.Image): the soil moisture constraint.
     References
     ----------
-    Fisher, J.B., Tu, K.P., Baldocchi, D.D.
-        Global estimates of the land-atmosphere water flux based on monthly
-        AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1016/j.rse.2007.06.025
+    Fisher et al., 2008
     '''
 
     import numpy as np
@@ -606,10 +538,7 @@ def compute_tnoon(Lon, Std_meridian, Doy, band_name = None):
         - T_noon (numpy array or ee.Image): the solar noon.
     References
     ----------
-    Campbell, G. S., & Norman, J. M.
-        Introduction to environmental biophysics (2nd ed.) (1998)
-        New York: Springer, pp. 168-169
-        http://dx.doi.org/10.1007/978-1-4612-1626-1
+    Campbell and Norman, 1998
     '''
 
     import numpy as np
@@ -647,13 +576,9 @@ def compute_g(Time, T_noon, Rns, band_name=None, G_Params = [0.31, 74000, 10800]
           the peaks of Rns and G. B and C are in seconds.
     Outputs: 
         - G (numpy array or ee.Image): the soil heat flux.
-    References
+    References 
     ----------
-    Joseph A. Santanello Jr. and Mark A. Friedl.
-        Diurnal Covariation in Soil Heat Flux and Net Radiation (2003)
-        J. Appl. Meteor., 42, pp. 851-862.
-        Remote Sensing of Environment, 112 (3), pp. 901-919.
-        http://dx.doi.org/10.1175/1520-0450(2003)042<0851:DCISHF>2.0.CO;2
+    Santanello et al., 2003
 
     Note: for this function, we are being more lenient for T_noon and Time
     If Rns is NOT an image, we assume T_noon and Time aren't either
@@ -858,3 +783,60 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
         ET=np.dstack((LE, LEc, LEs, LEi, H, G, Rn))
 
     return ET
+
+
+main_ref="Aragon, B., et al. (2018). \"CubeSats Enable High Spatiotemporal Retrievals \
+of Crop-Water Use for Precision Agriculture\". Remote Sensing 10(12): 1867."
+# Citation:
+# cite() - main reference only
+def cite():
+    print(main_ref)
+# cite_all() - all references
+def cite_all():
+    for ref in all_refs:
+        print(ref)
+
+all_refs=["Allen, R.G., Pereira, L.S., Raes, D., Smith, M. \
+\"Crop evapotranspiration —guidelines for computing crop water requirements\" \
+(1998) FAO Irrigation and drainage paper 56. Food and Agriculture \
+Organization, Rome, pp. 35-39. \
+http://www.fao.org/docrep/x0490e/x0490e00.htm", 
+"Aragon, B., Houborg, R., Tu, K., Fisher, J.B., McCabe, M. \
+\"Cubesats enable high spatiotemporal retrievals of crop-water use for \
+precision agriculture (2018)\" \
+Remote Sensing, 10 (12), art. no. 1867. \
+http://dx.doi.org/10.3390/rs10121867",
+"Campbell, G. S., & Norman, J. M. \
+\"Introduction to environmental biophysics (2nd ed.) (1998)\"\
+New York: Springer, pp. 168-169\
+http://dx.doi.org/10.1007/978-1-4612-1626-1",
+"Carlson, T.N., Capehart, W.J., Gillies, R.R. \
+\"A new look at the simplified method for remote sensing of daily \
+evapotranspiration (1995)\" \
+Remote Sensing of Environment, 54 (2), pp. 161-167.\
+http://dx.doi.org/10.1016/0034-4257(95)00139-R",
+"Choudhury, B.J., Ahmed, N.U., Idso, S.B., Reginato, R.J., Daughtry, C.S.T. \
+\"Relations between evaporation coefficients and vegetation indices \
+studied by model simulations (1994)\" \
+Remote Sensing of Environment, 50 (1), pp. 1-17.\
+http://dx.doi.org/10.1016/0034-4257(94)90090-6",
+"Fisher, J.B., Tu, K.P., Baldocchi, D.D. \
+\"Global estimates of the land-atmosphere water flux based on monthly \
+AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)\" \
+Remote Sensing of Environment, 112 (3), pp. 901-919.\
+http://dx.doi.org/10.1016/j.rse.2007.06.025",
+"Potter, C.S., Randerson, J.T., Field, C.B., Matson, P.A., Vitousek, P.M.,\
+Mooney, H.A., Klooster, S.A. \
+\"Terrestrial ecosystem production: A process model based on global \
+satellite and surface data (1993)\" \
+Global Biogeochemical Cycles, 7 (4), pp. 811-841. \
+http://dx.doi.org/10.1029/93GB02725",
+"Priestley, C.H.B. and Taylor, R.J. \
+\"On the Assessment of Surface Heat Flux and Evaporation Using Large Scale \
+Parameters (1972)\" Monthly Weather Review, 100, 81-92. \
+http://dx.doi.org/10.1175/1520-0493(1972)100<0081:OTAOSH>2.3.CO;2",
+"Joseph A. Santanello Jr. and Mark A. Friedl. \
+\"Diurnal Covariation in Soil Heat Flux and Net Radiation (2003)\" \
+J. Appl. Meteor., 42, pp. 851-862. \
+Remote Sensing of Environment, 112 (3), pp. 901-919. \
+http://dx.doi.org/10.1175/1520-0450(2003)042<0851:DCISHF>2.0.CO;2"] 

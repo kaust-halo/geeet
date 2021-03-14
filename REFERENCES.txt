@@ -1,0 +1,54 @@
+References for PT-JPL (arid):
+
+Allen, R.G., Pereira, L.S., Raes, D., Smith, M. 
+    Crop evapotranspiration —guidelines for computing crop water requirements
+    (1998) FAO Irrigation and drainage paper 56. Food and Agriculture 
+    Organization, Rome, pp. 35-39. 
+    http://www.fao.org/docrep/x0490e/x0490e00.htm
+
+Aragon, B., Houborg, R., Tu, K., Fisher, J.B., McCabe, M.
+    Cubesats enable high spatiotemporal retrievals of crop-water use for 
+    precision agriculture (2018)
+    Remote Sensing, 10 (12), art. no. 1867.
+    http://dx.doi.org/10.3390/rs10121867   
+
+Campbell, G. S., & Norman, J. M.
+    Introduction to environmental biophysics (2nd ed.) (1998)
+    New York: Springer, pp. 168-169
+    http://dx.doi.org/10.1007/978-1-4612-1626-1
+
+Carlson, T.N., Capehart, W.J., Gillies, R.R.
+    A new look at the simplified method for remote sensing of daily 
+    evapotranspiration (1995) 
+    Remote Sensing of Environment, 54 (2), pp. 161-167.
+    http://dx.doi.org/10.1016/0034-4257(95)00139-R
+    
+Choudhury, B.J., Ahmed, N.U., Idso, S.B., Reginato, R.J., Daughtry, C.S.T.
+    Relations between evaporation coefficients and vegetation indices 
+    studied by model simulations (1994) 
+    Remote Sensing of Environment, 50 (1), pp. 1-17.
+    http://dx.doi.org/10.1016/0034-4257(94)90090-6
+    
+Fisher, J.B., Tu, K.P., Baldocchi, D.D.
+    Global estimates of the land-atmosphere water flux based on monthly
+    AVHRR and ISLSCP-II data, validated at 16 FLUXNET sites (2008)
+    Remote Sensing of Environment, 112 (3), pp. 901-919.
+    http://dx.doi.org/10.1016/j.rse.2007.06.025
+
+Potter, C.S., Randerson, J.T., Field, C.B., Matson, P.A., Vitousek, P.M.,
+Mooney, H.A., Klooster, S.A.
+    Terrestrial ecosystem production: A process model based on global 
+    satellite and surface data (1993) 
+    Global Biogeochemical Cycles, 7 (4), pp. 811-841. 
+    http://dx.doi.org/10.1029/93GB02725
+    
+Priestley, C.H.B. and Taylor, R.J.
+    On the Assessment of Surface Heat Flux and Evaporation Using Large Scale 
+    Parameters (1972) Monthly Weather Review, 100, 81-92.
+    http://dx.doi.org/10.1175/1520-0493(1972)100<0081:OTAOSH>2.3.CO;2
+    
+Joseph A. Santanello Jr. and Mark A. Friedl.
+    Diurnal Covariation in Soil Heat Flux and Net Radiation (2003)
+    J. Appl. Meteor., 42, pp. 851-862.
+    Remote Sensing of Environment, 112 (3), pp. 901-919.
+    http://dx.doi.org/10.1175/1520-0450(2003)042<0851:DCISHF>2.0.CO;2
