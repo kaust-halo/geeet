@@ -20,7 +20,9 @@ This initial release features a PT-JPL model adapted for arid environments (as d
 
 ## Installation
 
-A release will soon be uploaded to pypi and conda-forge. 
+`pip install geeet`
+
+A release will soon be uploaded to conda-forge. 
 
 ## References
 
