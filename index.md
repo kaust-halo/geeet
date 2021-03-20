@@ -18,7 +18,7 @@ geeet aims to provide users with hybrid evapotranspiration (ET) models that run 
 
 This initial release features a PT-JPL model adapted for arid environments (as described in Aragon et al., 2018). A notebook example is included [here](./examples/notebooks/01_PTJPL.ipynb)
 
-### PT-JPL model for arid environments (as described in Aragon et al., 2018)   
+### PT-JPL model for arid environments (as described in [Aragon et al., 2018](http://dx.doi.org/10.3390/rs10121867))   
 
 To run the PT-JPL model (arid environments) for a single site, run:
 
