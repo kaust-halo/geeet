@@ -9,9 +9,9 @@
 
 geeet aims to provide users with hybrid evapotranspiration (ET) models that run with numerical values and with Google Earth Engine images. 
 
-- GitHub repo: https://github.com/kaust-halo/geeet
-- PyPI: https://pypi.org/project/geeet/
-- Conda-forge: https://anaconda.org/conda-forge/geeet
+- GitHub repo: [https://github.com/kaust-halo/geeet](https://github.com/kaust-halo/geeet)
+- PyPI: [https://pypi.org/project/geeet/](https://pypi.org/project/geeet/)
+- Conda-forge: [https://anaconda.org/conda-forge/geeet](https://anaconda.org/conda-forge/geeet)
 - Free software: MIT license
 
 ## Features
