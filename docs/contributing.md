@@ -56,17 +56,7 @@ Ready to contribute? Here's how to set up geeet for local development.
     $ git clone git@github.com:your_name_here/geeet.git
     ```
 
-3.  Install your local copy into a virtualenv. Assuming you have
-    virtualenvwrapper installed, this is how you set up your fork for
-    local development:
-
-    ```shell
-    $ mkvirtualenv geeet
-    $ cd geeet/
-    $ python setup.py develop
-    ```
-
-4.  Create a branch for local development:
+3.  Create a branch for local development:
 
     ```shell
     $ git checkout -b name-of-your-bugfix-or-feature
@@ -74,18 +64,7 @@ Ready to contribute? Here's how to set up geeet for local development.
 
     Now you can make your changes locally.
 
-5.  When you're done making changes, check that your changes pass flake8
-    and the tests, including testing other Python versions with tox:
-
-    ```shell
-    $ flake8 geeet tests
-    $ python setup.py test or pytest
-    $ tox
-    ```
-
-    To get flake8 and tox, just pip install them into your virtualenv.
-
-6.  Commit your changes and push your branch to GitHub:
+4.  Commit your changes and push your branch to GitHub:
 
     ```shell
     $ git add .
@@ -93,16 +72,4 @@ Ready to contribute? Here's how to set up geeet for local development.
     $ git push origin name-of-your-bugfix-or-feature
     ```
 
-7.  Submit a pull request through the GitHub website.
-
-## Pull Request Guidelines
-
-Before you submit a pull request, check that it meets these guidelines:
-
-1.  The pull request should include tests.
-2.  If the pull request adds functionality, the docs should be updated.
-    Put your new functionality into a function with a docstring, and add
-    the feature to the list in README.rst.
-3.  The pull request should work for Python 3.5, 3.6, 3.7 and 3.8, and
-    for PyPy. Check <https://github.com/lopezvoliver/geeet/pull_requests> and make sure that the tests pass for all
-    supported Python versions.
+5.  Submit a pull request through the GitHub website.
