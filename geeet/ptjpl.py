@@ -698,14 +698,14 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
     fm = compute_fm(f_apar, F_aparmax)
     taylor = compute_apt_delta_gamma(Temp_C, Press)
 
-    if not LAI:
+    if LAI is None:
         LAI = compute_lai(NDVI, k_par)
     
     rns = compute_rns(Rn, LAI)
     rnc = compute_rnc(Rn, rns)
     fsm = compute_fsm(RH, Temp_C, Beta)
 
-    if not G:
+    if G is None:
         # Check that equation of time parameters are supplied
         # these are: Doy, Time, longitude, and standard meridian
         # if the inputs are ee.Image, longitude and standard meridian are not required
