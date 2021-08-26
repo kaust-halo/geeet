@@ -25,19 +25,11 @@ geeet.ptjpl.cite_all() - all references used for this module
 
 import sys
 import numpy as np
+from geeet.common import is_img
 try: 
     import ee
 except Exception:
     pass
-
-def is_img(obj):
-    '''
-    Function to check if an object is an instance of ee.Image
-    '''
-    if 'ee' in sys.modules:
-        return isinstance(obj, sys.modules['ee'].Image)
-    else:
-        return False
 
 def compute_fwet(RH, band_name=None):
     '''
@@ -527,94 +519,6 @@ def compute_fsm(RH, Temp_C, Beta = 1.0, band_name=None):
     return Fsm
 
 
-def compute_tnoon(Lon, Std_meridian, Doy, band_name = None):
-    '''
-    Function to compute the solar noon time in decimal hours.
-    Inputs:
-        - Lon (numpy array or ee.Image): the pixel longitudes.
-        - Std_meridian (int or ee.Image): the standard meridian of the study site.
-        - int Doy: the day of the year.
-    Outputs: 
-        - T_noon (numpy array or ee.Image): the solar noon.
-    References
-    ----------
-    Campbell and Norman, 1998
-    '''
-
-    import numpy as np
-
-    DTOR = 0.017453292 # constant to convert degrees to radians
-    # Compute the value of the equation of time in hours eq (11.4)
-    f = (279.575 + 0.9856*Doy)*DTOR
-    equation_time = (-104.7*np.sin(f) + 596.2*np.sin(2*f) + 4.3*np.sin(3*f) - 12.7*np.sin(4*f) - 429.3*np.cos(f) - 2.0*np.cos(2*f) + 19.3*np.cos(3*f))/3600.0
- 
-    if is_img(Lon):
-        LC = (Lon.subtract(Std_meridian)).multiply(4).divide(60)
-        T_noon = ee.Image(12.0).subtract(LC).subtract(equation_time)
-        if band_name:
-            T_noon = T_noon.rename(band_name)
-    else:
-        # Compute the time of solar noon eq (11.3)
-        LC = (4*(Lon - Std_meridian))/60.0 # compute latitude correction in hours
-        T_noon = 12.0 - LC - equation_time
-    
-    return T_noon
-
-
-def compute_g(Time, T_noon, Rns, band_name=None, G_Params = [0.31, 74000, 10800]):
-    '''
-    Function to compute the soil heat flux.
-    Inputs:
-        - Time (numpy array): the current time in decimal hours.
-        - T_noon (numpy array or ee.Image): the solar noon time in decimal hours.
-        - Rns (numpy array or ee.Image): the net radiation to the soil.
-    Optional_Inptus:
-        - list [float A, float B, float C] G_Params: the parameters for
-          computing solid heat flux where A is the maximum ratio of G/Rns
-          B reduces deviation of G/Rn to measured values, also thought of
-          as the spread of the cosine wave and C is the phase shift between
-          the peaks of Rns and G. B and C are in seconds.
-    Outputs: 
-        - G (numpy array or ee.Image): the soil heat flux.
-    References 
-    ----------
-    Santanello et al., 2003
-
-    Note: for this function, we are being more lenient for T_noon and Time
-    If Rns is NOT an image, we assume T_noon and Time aren't either
-    But if Rns is an image and T_noon or Time aren't, we will cast them to ee.Image
-    '''
-
-    import numpy as np
-
-    a = G_Params[0]
-    b = G_Params[1]
-    c = G_Params[2]
-
-    if is_img(T_noon):
-        if is_img(Time):
-            t_g0 = Time.subtract(T_noon).multiply(3600.0)
-        else:
-            t_g0 = ee.Image(Time).subtract(T_noon).multiply(3600.0)
-    else:
-        t_g0 = (Time-T_noon)*3600.0
-
-    if is_img(t_g0):
-        cos_term = t_g0.add(c).multiply(2.0*np.pi/b)
-        G = cos_term.cos().multiply(Rns).multiply(a)
-    else:
-        cos_term = np.cos(2.0*np.pi*(t_g0+c)/b)
-        if is_img(Rns):
-            G = Rns.multiply(cos_term).multiply(a)
-        else:
-            G = a*cos_term*Rns
-
-    if is_img(G) and band_name:
-        G = G.rename(band_name)
-
-    return G
-
-
 def ptjpl_arid(RH, Temp_C, Press, Rn, NDVI, F_aparmax, LAI=None, G=None,
 G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0, Mask_Val=0.0, band_names=['LE', 'LEc', 'LEs', 'LEi', 'H', 'G', 'Rn']):
     '''
@@ -643,7 +547,8 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
             (see compute_tnoon and compute_g)
             If the inputs are ee.Images, longitude and stdMerid are not required and
             they are ignored.
-        - Doy (integer): the day of year. Required if G is not supplied (see compute_g)
+            Note: doy should be ee.Number if mapping this function over an ee.ImageCollection
+                (not required for computing ET on a single ee.Image)
         - Time (float): the decimal time of the computation. Required if G is not supplied (see compute_g) 
         - k_par (float): parameter used in the computation of LAI (see compute_lai) 
         - Beta (float): Sensibility parameter to VPD in kPa (see compute_fsm)
@@ -709,13 +614,14 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
         # Check that equation of time parameters are supplied
         # these are: Doy, Time, longitude, and standard meridian
         # if the inputs are ee.Image, longitude and standard meridian are not required
+        from geeet.common import compute_tnoon, compute_g
         if are_inputs_imgs:
             if len(eot_params)>=2: 
                 Doy=eot_params[0]
                 Time=eot_params[1]
                 longitude = ee.Image.pixelLonLat().select('longitude')
                 stdMerid = longitude.add(187.5).divide(15).int().multiply(15).subtract(180)
-                t_noon = compute_tnoon(longitude, stdMerid, Doy)
+                t_noon = compute_tnoon(Doy, longitude)
                 G = compute_g(Time, t_noon, rns, G_Params=G_Params)
             else:
                 print('Equation of time parameters (list) [Doy, Time] are required to compute G.')
@@ -726,7 +632,7 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
                 Time=eot_params[1]
                 longitude=eot_params[2]
                 stdMerid=eot_params[3]
-                t_noon = compute_tnoon(longitude, stdMerid, Doy)
+                t_noon = compute_tnoon(Doy, longitude)
                 G = compute_g(Time, t_noon, rns, G_Params = G_Params)
             else:
                 print('Equation of time parameters (list) [Doy, Time, longitude, standard meridian] are required to compute G.')
