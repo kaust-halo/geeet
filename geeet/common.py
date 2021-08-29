@@ -23,6 +23,90 @@ def is_eenum(obj):
     else:
         return False
 
+#### Humidity calculations 
+
+def teten(T):
+    '''
+    Compute Teten's formula for saturation water vapour pressure  (esat (T)) 
+    Reference: 
+    https://www.ecmwf.int/sites/default/files/elibrary/2016/17117-part-iv-physical-processes.pdf#subsection.7.2.1    
+
+    Input: T (numpy array or ee.Image) Temperature at which to calculate esat
+    '''
+    import numpy as np
+    a1 = 611.21 # in Pa
+    a3 = 17.502 
+    a4 = 32.19 # in K
+    T0 = 273.16 # in K
+    
+    if is_img(T):
+        T1 = T.subtract(T0) # in K
+        T2 = T.subtract(a4) # in K
+        esat = T1.divide(T2).multiply(a3).exp().multiply(a1)
+    else:
+        esat = a1*np.exp(a3*(T-T0)/(T-a4))
+    return esat
+
+def specific_humidity(img):
+    '''
+    Input: img (list of numpy arrays or ee.Image) with following bands/arrays:
+        - dewpoint_temperature     (K)
+        - surface_pressure         (Pa)
+
+    Note: if the names of the image are not the same as defined above, 
+    you can use img.select([old_names], [new_names]) to match the names above
+    before calling this function.
+    '''
+    Rdry = 287.0597
+    Rvap = 461.5250
+    epsilon = Rdry/Rvap
+    if is_img(img):
+        T = img.select('dewpoint_temperature')
+        esat = teten(T)
+        P = img.select('surface_pressure')
+        denom = P.subtract(esat.multiply(1-epsilon))
+        Q = esat.multiply(epsilon).divide(denom)
+    else:
+        T = img[0]
+        esat = teten(T)
+        P = img[1]
+        Q = epsilon*esat/(P-(1-Rdry/Rvap)*esat)
+    return Q
+
+def relative_humidity(img):
+    '''
+    Input: img (list of numpy arrays or ee.Image) with following bands/arrays:
+        - temperature   (K)
+        - dewpoint_temperature (K)
+        - surface_pressure (Pa)
+    Note: if the names of the image are not the same as defined above, 
+    you can use img.select([old_names], [new_names]) to match the names above
+    before calling this function.
+
+    Output: 
+        - Relative humidity (%) either as a numpy array
+        or returned with the same image as an added band named 'relative_humidity'
+    '''
+    Rdry = 287.0597
+    Rvap = 461.5250
+    epsilon = Rdry/Rvap
+    if is_img(img):
+        T = img.select('temperature')
+        P = img.select('surface_pressure')
+        Q = specific_humidity(img)
+        esat = teten(T)
+        denom = Q.multiply(1/epsilon -1).add(1).multiply(esat)
+        RH_band = P.multiply(Q).multiply(100/epsilon).divide(denom).rename('relative_humidity')
+        RH = img.addBands(RH_band)
+    else:
+        T = img[0]
+        D = img[1]
+        P = img[2]
+        esat = teten(T)
+        Q = specific_humidity([D,P])
+        RH = (P*Q*100/epsilon)/(esat*(1+Q*((1/epsilon) - 1)))
+    return RH
+    
 #### Solar-related and heat flux computations
 
 def std_meridian(longitude=None):
