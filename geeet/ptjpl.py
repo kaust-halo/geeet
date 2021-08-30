@@ -519,37 +519,40 @@ def compute_fsm(RH, Temp_C, Beta = 1.0, band_name=None):
     return Fsm
 
 
-def ptjpl_arid(RH, Temp_C, Press, Rn, NDVI, F_aparmax, LAI=None, G=None,
-G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0, Mask_Val=0.0, band_names=['LE', 'LEc', 'LEs', 'LEi', 'H', 'G', 'Rn']):
+def ptjpl_arid(img=None, RH=None, Temp_C=None, Press=None, Rn=None, NDVI=None, F_aparmax=None,doy=None, time=None, longitude=None, G_params = [0.31, 74000, 10800], k_par = 0.5, Beta = 1.0, Mask=1.0, Mask_Val=0.0, band_names = ['LE', 'LEc', 'LEs', 'LEi', 'H', 'G', 'Rn']):
     '''
     Function to compute evapotranspiration components using the PT-JPL model
     adapted for arid lands (Aragon et al., 2018)
 
     Inputs:
-        - RH (numpy array or ee.Image): relative humidity [0-100].
-        - Temp_C (numpy array or ee.Image): air temperature in Celsius.
-        - Press (numpy array or ee.Image): Pressure in Kpa.
-        - Rn (numpy array or ee.Image): Net radiation in W/m2.
-        - NDVI (numpy array or ee.Image): NDVI values.
-        - F_aparmax (numpy array or ee.Image): Maximum fapar values.
-    Optional_Inputs:
-        - LAI (numpy array or ee.Image): Leaf area index (m2/m2). 
-                If not provided, LAI is computed (see compute_lai).
-        - G (numpy array or ee.Image): Soil heat flux (W/m2).
-                If not provided, G is computed (see compute_g).
+    img: ee.Image with the following bands (or image properties):
+        - relative_humidity : relative humidity (%).
+        - temperature_C : air temperature in Celsius.
+        - surface_pressure_KPa : Pressure in KPa.
+        - net_radiation : Net radiation in W/m2.
+        - NDVI : Normalized Difference Vegetation Index values.
+        - fapar_max : Maximum fapar* values.
+        - doy (ee.Image property or np.array): Day of year. 
+        - time (ee.Image property or np.array): Local time of observation (decimal)    
+    or: numpy arrays as keyword parameters (all of these are ignored if img is an ee.Image):
+        - RH: relative humidity (%)
+        - Temp_C: air temperature in Celsius
+        - Press: pressure in KPa
+        - Rn: net radiation in W/m2
+        - NDVI: NDVI values
+        - fapar_max: Maximum fapar* values
+        - doy: day of year
+        - time: local time of observation (decimal)
+        - longitude: longitude values. 
+
+        *Fraction of the photosynthetic active radiation (PAR) absorbed by green vegetation cover.
+
+    Optional_Inputs: 
         - G_params (list [float A, float B, float C]): the parameters for
           computing solid heat flux where A is the maximum ratio of G/Rns
           B reduces deviation of G/Rn to measured values, also thought of
           as the spread of the cosine wave and C is the phase shift between
-          the peaks of Rns and G. B and C are in seconds.
-        - eot_params (list [int Doy, float Time, float longitude, float stdMerid]):
-            Parameters for the equation of time. Required if G is not supplied 
-            (see compute_tnoon and compute_g)
-            If the inputs are ee.Images, longitude and stdMerid are not required and
-            they are ignored.
-            Note: doy should be ee.Number if mapping this function over an ee.ImageCollection
-                (not required for computing ET on a single ee.Image)
-        - Time (float): the decimal time of the computation. Required if G is not supplied (see compute_g) 
+          the peaks of Rns and G. B and C are in seconds.        
         - k_par (float): parameter used in the computation of LAI (see compute_lai) 
         - Beta (float): Sensibility parameter to VPD in kPa (see compute_fsm)
         - Mask (numpy array): an array containing the coded invalid data (e.g. -9999)
@@ -558,7 +561,12 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
         - Mask_Val (number): the value that represents invalid data. Only for numpy array
             inputs; ignored for ee.Image inputs. 
         - band_names (list of strings): If provided, the bands in the output ee.Image
-                are renamed using this list. Ignored if inputs are numpy arrays.  
+                are renamed using this list. Ignored if inputs are numpy arrays.            
+        - LAI (numpy array or ee.Image): Leaf area index (m2/m2).  
+                If not provided, LAI is computed (see compute_lai). TODO (computed by default for now) 
+        - G (numpy array or ee.Image): Soil heat flux (W/m2).      
+                If not provided, G is computed (see compute_g).     TODO (computed by default for now)
+
     Outputs: 
         - ET (tuple or ee.Image): tuple containing numpy arrays with the following
                                   components, or ee.Image containing the following bands:
@@ -571,75 +579,32 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
         -     Rn: the net radiation.
     '''
     import numpy as np
-    is_RH_img = is_img(RH)
-    is_Temp_C_img = is_img(Temp_C)
-    is_Press_img = is_img(Press)
-    is_Rn_img = is_img(Rn)
-    is_NDVI_img = is_img(NDVI)
-    is_F_aparmax_img = is_img(F_aparmax)
-    all_conditions = [is_RH_img, is_Temp_C_img, is_Press_img, is_Rn_img, 
-    is_NDVI_img, is_F_aparmax_img]
- 
-    if LAI:
-        is_LAI_img = is_img(LAI)
-        all_conditions = all_conditions.append(is_LAI_img)
-    if G:
-        is_G_img = is_img(G) 
-        all_conditions = all_conditions.append(is_G_img)  
- 
-    
-    # Either all inputs are images, or not:
-    test_all = np.unique(all_conditions)    
-    if(len(test_all)>1):
-        print('Either all inputs should be ee.Images, or all inputs should be numeric.')
-        return
+    from geeet.common import compute_g
 
-    are_inputs_imgs = test_all[0]
+    if is_img(img):
+        RH = img.select('relative_humidity')
+        Rn = img.select('net_radiation')
+        NDVI = img.select('NDVI')
+        Temp_C = img.select('temperature_C')
+        Press = img.select('surface_pressure_KPa')
+        F_aparmax = img.select('fapar_max')
+        time = img.get('time')
+        doy = img.get('doy')
 
+    # all of these functions work as is for both cases:
     fwet = compute_fwet(RH) 
     fg = compute_fg(NDVI)
     ft = compute_ft_arid(Temp_C)
     f_apar = compute_fapar(NDVI)
     fm = compute_fm(f_apar, F_aparmax)
     taylor = compute_apt_delta_gamma(Temp_C, Press)
-
-    if LAI is None:
-        LAI = compute_lai(NDVI, k_par)
-    
+    LAI = compute_lai(NDVI, k_par)
     rns = compute_rns(Rn, LAI)
     rnc = compute_rnc(Rn, rns)
     fsm = compute_fsm(RH, Temp_C, Beta)
+    G = compute_g(doy = doy, time=time, Rns = rns, G_params = G_params, longitude=longitude) 
 
-    if G is None:
-        # Check that equation of time parameters are supplied
-        # these are: Doy, Time, longitude, and standard meridian
-        # if the inputs are ee.Image, longitude and standard meridian are not required
-        from geeet.common import compute_tnoon, compute_g
-        if are_inputs_imgs:
-            if len(eot_params)>=2: 
-                Doy=eot_params[0]
-                Time=eot_params[1]
-                longitude = ee.Image.pixelLonLat().select('longitude')
-                stdMerid = longitude.add(187.5).divide(15).int().multiply(15).subtract(180)
-                t_noon = compute_tnoon(Doy, longitude)
-                G = compute_g(Time, t_noon, rns, G_Params=G_Params)
-            else:
-                print('Equation of time parameters (list) [Doy, Time] are required to compute G.')
-                return
-        else:
-            if len(eot_params)==4:
-                Doy=eot_params[0]
-                Time=eot_params[1]
-                longitude=eot_params[2]
-                stdMerid=eot_params[3]
-                t_noon = compute_tnoon(Doy, longitude)
-                G = compute_g(Time, t_noon, rns, G_Params = G_Params)
-            else:
-                print('Equation of time parameters (list) [Doy, Time, longitude, standard meridian] are required to compute G.')
-                return
-
-    # Compute ET components:
-    if are_inputs_imgs:
+    if is_img(img):
         cst_1 = ee.Image(1.0)
         fwet_sub1 = cst_1.subtract(fwet)
         # Canopy transpiration image
@@ -658,6 +623,9 @@ G_Params = [0.31, 74000, 10800], eot_params=None, k_par=0.5, Beta=1.0, Mask=1.0,
         # LE, LEc, LEs, LEi, H, G, Rn
         ET = LE.addBands(LEc).addBands(LEs).addBands(LEi).addBands(H).addBands(G).addBands(Rn)
         ET = ET.rename(band_names)
+        ET = ET.set('doy', doy)
+        ET = ET.set('time', time)
+        ET = ET.set('system:time_start', img.get('system:time_start'))
     else:
         # Compute canopy transpiration
         LEc = (1 - fwet)*fg*ft*fm*taylor*rnc

@@ -133,9 +133,8 @@ def std_meridian(longitude=None):
 def eqn_time(doy):
     '''
     Function to calculate the equation of time, in hours
-
     Input: doy (np.array or ee.Number)
-    Output: eot (np.array or ee.Number; whichever the input type is)
+    Output: eot (np.array or ee.Number; matches the input type)
     '''
     import numpy as np
     DTOR = np.deg2rad(1) # constant to convert degrees to radians
@@ -161,14 +160,11 @@ def compute_tnoon(doy, Lon = None, band_name = None):
     '''
     Function to compute the solar noon time in decimal hours.
     Inputs:
-        - doy (numpy array or ee.Number*): the day of the year. 
-        - Lon** (numpy array or ee.Image): the pixel longitudes.
-    * if running the model with a single ee.Image, doy could be ee.Number or a scalar value.
-    However, for mapping an ET model as a function to a ee.ImageCollection, doy should be an ee.Number. 
+        - doy (numpy array or ee.Number): the day of the year. 
+        - Lon* (numpy array or ee.Image): the pixel longitudes.
        
-    **For a numpy array output, longitude is a required input;
+    *For a numpy array output, longitude is a required input;
      for an ee.Image output, longitude is an optional input.   
-
     Outputs: 
         - T_noon (numpy array or ee.Image): the solar noon.
     References
@@ -202,22 +198,19 @@ def compute_tnoon(doy, Lon = None, band_name = None):
     return T_noon
 
 
-def compute_sunset_sunrise(doy, Lon = None, Lat = None, t_noon = None, band_names = ['t_rise', 't_end']):
+def compute_sunset_sunrise(img = None, doy = None, longitude = None, latitude = None):
     '''
     Function to compute the sunset and sunrise times 
     Inputs:
-        - doy (numpy array or ee.Number*): the day of the year. 
-        - Lon** (numpy array or ee.Image): the pixel longitudes.
-        - Lat** (numpy array or ee.Image): the pixel latitudes.
-    * if running the model with a single ee.Image, doy could be ee.Number or a scalar value.
-    However, for mapping an ET model as a function to a ee.ImageCollection, doy should be an ee.Number. 
+        - img (ee.Image) with the following bands or properties:
+            - doy           (property) : day of year
+            - longitude     (band)
+            - latitude      (band)
+        or the following numpy arrays as keywords:
+            - doy: day of year
+            - longitude
+            - latitude
 
-    Optional inputs:
-    **For a numpy array output, longitude and latitude are required outputs;
-     for an ee.Image output, they are optional.   
-
-        - t_noon (numpy array or ee.Image): solar noon (decimal time).
-                                    If not provided, it will be computed using compute_tnoon
     Outputs:
         - solar_times (tuple or ee.Image): tuple containing numpy arrays with the following
                 components, or ee.Image containing the following bands:
@@ -226,33 +219,22 @@ def compute_sunset_sunrise(doy, Lon = None, Lat = None, t_noon = None, band_name
             n.b. we could add the zenith angle of the sun here if needed. 
     '''
     import numpy as np 
-
-    if Lon is None:
-        from ee import Image
-        lonlat_img = Image.pixelLonLat()
-        Lon = lonlat_img.select('longitude')
-        Lat = lonlat_img.select('latitude')
-
-    if t_noon is None:
-        from geeet.common import compute_tnoon
-        t_noon = compute_tnoon(doy, Lon)
+    from geeet.common import compute_tnoon, is_img
 
     DTOR = np.deg2rad(1) # constant to convert degrees to radians
     RTOD = np.rad2deg(1) # constant to convert radians to degrees
 
-    # Estimate solar declination in radians
-    if is_eenum(doy):
-        import ee
+    if is_img(img):
+        from ee import Number, Image
+        doy = Number(img.get('doy'))
+        t_noon = compute_tnoon(doy)
+        Lat = img.select('latitude')
+        # Estimate solar declination in radians
         doy_scaled = doy.multiply(0.9856)
         sin1 = doy_scaled.add(356.6).multiply(DTOR).sin()
         sin2 = sin1.multiply(1.9165).add(doy_scaled).add(278.97).multiply(DTOR).sin()
-        sin3 = ee.Number(np.sin(23.45*DTOR))
+        sin3 = Number(np.sin(23.45*DTOR))
         solar_declination = sin2.multiply(sin3).asin()
-    else:
-        solar_declination = np.arcsin(np.sin(23.45*DTOR)*np.sin(DTOR*(278.97 + 0.9856*doy + 1.9165*np.sin((356.6 + 0.9856*doy)*DTOR))))
-   
-    if is_img(Lon):
-        from ee import Image
         lat_rad = Lat.multiply(DTOR)
         sin_lat = lat_rad.sin()
         cos_lat = lat_rad.cos()
@@ -279,9 +261,11 @@ def compute_sunset_sunrise(doy, Lon = None, Lat = None, t_noon = None, band_name
         t_rise = t_noon.subtract(halfday_h)
         t_end = t_noon.add(halfday_h)
         solar_times = t_rise.addBands(t_end)
-        solar_times = solar_times.rename(band_names)
+        solar_times = solar_times.rename(['t_rise','t_end'])
         return solar_times
     else:
+        t_noon = compute_tnoon(doy, longitude)
+        solar_declination = np.arcsin(np.sin(23.45*DTOR)*np.sin(DTOR*(278.97 + 0.9856*doy + 1.9165*np.sin((356.6 + 0.9856*doy)*DTOR))))
         # Compute the zenith angle of the sun eq (11.1) time_t must be in standard time (local time disregarding daylight savings adjustment)
         #cos_zs = np.sin(Lat*DTOR)*np.sin(solar_declination) +np.cos(Lat*DTOR)*np.cos(solar_declination)*np.cos((15*(Time_t - t_noon))*DTOR)
 
@@ -289,7 +273,7 @@ def compute_sunset_sunrise(doy, Lon = None, Lat = None, t_noon = None, band_name
         #zs = np.arccos(cos_zs)
 
         # Compute the halfday length considering twilight (set zs = 96 degrees) eq (11.6)
-        halfday = np.arccos((np.cos(96*DTOR)-np.sin(Lat*DTOR)*np.sin(solar_declination))/(np.cos(Lat*DTOR)*np.cos(solar_declination)))
+        halfday = np.arccos((np.cos(96*DTOR)-np.sin(latitude*DTOR)*np.sin(solar_declination))/(np.cos(latitude*DTOR)*np.cos(solar_declination)))
         halfday_h = halfday*RTOD/15.0 # converting to hours
         # Compute sunrise and sunset time eq (11.7)
         t_rise = t_noon - halfday_h
@@ -297,103 +281,95 @@ def compute_sunset_sunrise(doy, Lon = None, Lat = None, t_noon = None, band_name
         solar = [t_rise, t_end]
         return solar
 
-def rad_ratio(doy, Time, longitude=None, latitude=None):
+def rad_ratio(img=None, doy=None, time = None, longitude=None, latitude=None):
     '''
     Compute Jackson irradiance model (ratio of instantaneous radiation to daily radiation)
-    For a numpy array output, longitude and latitude are required inputs.
-    For an ee.Image output, longitude and latitude are optional inputs. 
-
         Inputs:
-        - doy (numpy array or ee.Number): the day of the year.
-        - Time_T (numpy array): the time of the observation, in hours (e.g. 11 for 11am)
-        - Lon (numpy array or ee.Image): the pixel longitudes. 
-        - Lat (numpy array or ee.Image): the pixel latitudes.
+        - img (ee.Image) with the following parameters:
+            - doy (day of year)
+            - time (time of observation)
+        or
+        the following numpy arrays as keyword arguments:
+        doy (day of year)
+        time (time of observation)
+        longitude
+        latitude 
+
+        *The ee.Image should contain the property "system:time_start" 
+        see https://developers.google.com/earth-engine/apidocs/ee-image-date
+        and a time of observation property "time" in hours (local)
     Outputs:
        - Rs_ratio (numpy dstack or ee.Image): the computed ratio of instantaneous radiation to daily radiation
     '''
     import numpy as np 
 
-    # if longitude is not provided, we assume the user wants an ee.Image
-    # in which case we create it using ee.Image.pixelLonLat()
-    if (longitude is None) or (latitude is None):
-        from ee import Image
-        lonlat_img = Image.pixelLonLat()
-        longitude = lonlat_img.select('longitude')
-        latitude = lonlat_img.select('latitude')
-
-    solar_times = compute_sunset_sunrise(doy, longitude, latitude)
-
-    if is_img(longitude):
-        from ee import Image
+    if is_img(img):
+        from ee import Image, Number
+        doy = Number(img.get('doy'))  
+        lonlat_img = Image.pixelLonLat().set({'doy': doy})
+        Time = Number(img.get('time'))  # time in hours (local time)
+        solar_times = compute_sunset_sunrise(lonlat_img) 
         sunrise_time = solar_times.select('t_rise').multiply(3600)
         sunset_time = solar_times.select('t_end').multiply(3600)
         sun_seconds = sunset_time.subtract(sunrise_time)
-        sun_obs = Image(Time*3600).subtract(sunrise_time)
+        sun_obs = Image(Time.multiply(3600)).subtract(sunrise_time)
         denom = (sun_obs.divide(sun_seconds).multiply(np.pi).sin()).multiply(np.pi*1E6)
         Rs_ratio = sun_seconds.multiply(2).divide(denom)
         Rs_ratio = Rs_ratio.divide(2.45)  # Convert from MJ/m2day to mm/day 
     else:
-        # Compute the simulated ratio of instantaneous incomming radiation to daily radiation
+        solar_times = compute_sunset_sunrise(doy=doy, longitude=longitude, latitude=latitude) 
         sunrise_time = solar_times[0]*3600
         sunset_time = solar_times[1]*3600
         N = sunset_time - sunrise_time
-        t = Time*3600 - sunrise_time
-        Rs_ratio = 2*N/((10 ** 6) * np.pi * np.sin(np.pi * t/N)) # (MJ/m2day) / (W/m2)    
-        Rs_ratio = Rs_ratio/2.45 # Convert from MJ/m2day to mm/day
+        t = time*3600 - sunrise_time
+        Rs_ratio = 2*N/((10 ** 6) * np.pi * np.sin(np.pi * t/N))     
+        Rs_ratio = Rs_ratio/2.45 # Convert to mm/day
     return Rs_ratio
 
-def compute_g(Time, T_noon, Rns, band_name=None, G_Params = [0.31, 74000, 10800]):
+def compute_g(doy, time, Rns, longitude = None, G_params = [0.31, 74000, 10800]):
     '''
     Function to compute the soil heat flux.
     Inputs:
-        - Time (numpy array): the current time in decimal hours.
-        - T_noon (numpy array or ee.Image): the solar noon time in decimal hours.
+        - doy (numpy array or ee.Number): the observation day (day of year)
+        - time (numpy array or ee.Number): the observation local time in decimal hours.
         - Rns (numpy array or ee.Image): the net radiation to the soil.
     Optional_Inptus:
-        - list [float A, float B, float C] G_Params: the parameters for
+        - list or ee.List [float A, float B, float C] G_Params: the parameters for
           computing solid heat flux where A is the maximum ratio of G/Rns
           B reduces deviation of G/Rn to measured values, also thought of
           as the spread of the cosine wave and C is the phase shift between
           the peaks of Rns and G. B and C are in seconds.
+        - longitude (numpy array): only required if Rns is a numpy array and not an ee.Image
     Outputs: 
         - G (numpy array or ee.Image): the soil heat flux.
     References 
     ----------
     Santanello et al., 2003
-
-    Note: for this function, we are being more lenient for T_noon and Time
-    If Rns is NOT an image, we assume T_noon and Time aren't either
-    But if Rns is an image and T_noon or Time aren't, we will cast them to ee.Image
     '''
-
+    from geeet.common import compute_tnoon, is_img
     import numpy as np
 
-    a = G_Params[0]
-    b = G_Params[1]
-    c = G_Params[2]
-
-    if is_img(T_noon):
-        if is_img(Time):
-            t_g0 = Time.subtract(T_noon).multiply(3600.0)
-        else:
-            import ee
-            t_g0 = ee.Image(Time).subtract(T_noon).multiply(3600.0)
+    if is_img(Rns):
+        from ee import Image, List, Number
+        time = Number(time)
+        doy = Number(doy)
+        t_noon = compute_tnoon(doy)  # we ignore longitude, 
+        # and this way we make sure t_noon is cast as an ee.Image 
+        G_params = List(G_params)   # we make it a ee.List
+        a = Number(G_params.get(0))
+        b = Number(G_params.get(1))
+        c = Number(G_params.get(2))
+        t_g0 = Image(time).subtract(t_noon).multiply(3600.0)
+        cos_term = t_g0.add(c).multiply(2.0*np.pi).divide(b)
+        G = cos_term.cos().multiply(Rns).multiply(a).rename('soil_heat_flux')
     else:
-        t_g0 = (Time-T_noon)*3600.0
-
-    if is_img(t_g0):
-        cos_term = t_g0.add(c).multiply(2.0*np.pi/b)
-        G = cos_term.cos().multiply(Rns).multiply(a)
-    else:
+        t_noon = compute_tnoon(doy, longitude) # longitude required for numpy array version.
+        a = G_params[0]
+        b = G_params[1]
+        c = G_params[2]
+        t_g0 = (time-t_noon)*3600.0
         cos_term = np.cos(2.0*np.pi*(t_g0+c)/b)
-        if is_img(Rns):
-            G = Rns.multiply(cos_term).multiply(a)
-        else:
-            G = a*cos_term*Rns
-
-    if is_img(G) and band_name:
-        G = G.rename(band_name)
-
+        G = a*cos_term*Rns
     return G
 
 
