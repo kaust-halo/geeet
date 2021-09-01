@@ -519,7 +519,7 @@ def compute_fsm(RH, Temp_C, Beta = 1.0, band_name=None):
     return Fsm
 
 
-def ptjpl_arid(img=None, RH=None, Temp_C=None, Press=None, Rn=None, NDVI=None, F_aparmax=None,doy=None, time=None, longitude=None, G_params = [0.31, 74000, 10800], k_par = 0.5, Beta = 1.0, Mask=1.0, Mask_Val=0.0, band_names = ['LE', 'LEc', 'LEs', 'LEi', 'H', 'G', 'Rn']):
+def ptjpl_arid(img=None, RH=None, Temp_C=None, Press=None, Rn=None, NDVI=None, F_aparmax=None,doy=None, time=None, longitude=None, G_params = [0.31, 74000, 10800], k_par = 0.5, Beta = 1.0, Mask=1.0, Mask_Val=0.0):
     '''
     Function to compute evapotranspiration components using the PT-JPL model
     adapted for arid lands (Aragon et al., 2018)
@@ -569,7 +569,7 @@ def ptjpl_arid(img=None, RH=None, Temp_C=None, Press=None, Rn=None, NDVI=None, F
 
     Outputs: 
         - ET (tuple or ee.Image): tuple containing numpy arrays with the following
-                                  components, or ee.Image containing the following bands:
+                                  components, or the following bands are added to the input image:
         -     LE: the latent heat flux.
         -     LEc: the canopy transpiration component of LE.
         -     LEs: the soil evaporation component of LE.
@@ -608,24 +608,21 @@ def ptjpl_arid(img=None, RH=None, Temp_C=None, Press=None, Rn=None, NDVI=None, F
         cst_1 = ee.Image(1.0)
         fwet_sub1 = cst_1.subtract(fwet)
         # Canopy transpiration image
-        LEc = fwet_sub1.multiply(fg).multiply(ft).multiply(fm).multiply(taylor).multiply(rnc)
+        LEc = fwet_sub1.multiply(fg).multiply(ft).multiply(fm).multiply(taylor).multiply(rnc).rename('LEc')
         # Soil evaporation image
-        LEs = ((fwet_sub1.multiply(fsm)).add(fwet)).multiply(taylor).multiply(rns.subtract(G))
+        LEs = ((fwet_sub1.multiply(fsm)).add(fwet)).multiply(taylor).multiply(rns.subtract(G)).rename('LEs')
         # Interception evaporation image
-        LEi = fwet.multiply(taylor).multiply(rnc)
+        LEi = fwet.multiply(taylor).multiply(rnc).rename('LEi')
         # Evapotranspiration image
-        LE = LEc.add(LEs).add(LEi)
+        LE = LEc.add(LEs).add(LEi).rename('LE')
         # Compute the sensible heat flux image H by residual
-        H = (Rn.subtract(G)).subtract(LE)
-        Rn = rns.add(rnc)
+        H = (Rn.subtract(G)).subtract(LE).rename('H')
+        Rn = rns.add(rnc).rename('Rn')
 
-        # Prepare the output image:
-        # LE, LEc, LEs, LEi, H, G, Rn
-        ET = LE.addBands(LEc).addBands(LEs).addBands(LEi).addBands(H).addBands(G).addBands(Rn)
-        ET = ET.rename(band_names)
-        ET = ET.set('doy', doy)
-        ET = ET.set('time', time)
-        ET = ET.set('system:time_start', img.get('system:time_start'))
+        # Add the outputs to the input image:
+        # LE, LEc, LEs, LEi, H, G 
+        G = G.rename('G')
+        ET = img.addBands(LE).addBands(LEc).addBands(LEs).addBands(LEi).addBands(H).addBands(G).addBands(Rn)
     else:
         # Compute canopy transpiration
         LEc = (1 - fwet)*fg*ft*fm*taylor*rnc
