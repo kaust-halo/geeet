@@ -16,7 +16,7 @@ geeet aims to provide users with hybrid evapotranspiration (ET) models that run 
 
 ## Features
 
-This initial release features a PT-JPL model adapted for arid environments (as described in Aragon et al., 2018). A notebook example is included [here](./examples/notebooks/01_PTJPL.ipynb)
+This initial release features a PT-JPL model adapted for arid environments (as described in Aragon et al., 2018). A notebook example is included [here](./examples/notebooks/01_PTJPL.ipynb). 
 
 ### PT-JPL model for arid environments (as described in [Aragon et al., 2018](http://dx.doi.org/10.3390/rs10121867))   
 
@@ -24,20 +24,27 @@ To run the PT-JPL model (arid environments) for a single site, run:
 
 ```python
 from geeet.ptjpl import ptjpl_arid
-ET = ptjpl_arid(RH=25.3, Temp_C=24.3442, Press=94.524, Rn=374.8117, NDVI=0.7588, F_aparmax=0.7295, eot_params=[105,11, 38.4381,45])  
+ET = ptjpl_arid(RH=25.3, Temp_C=24.3442, Press=94.524, Rn=374.8117, NDVI=0.7588, F_aparmax=0.7295, doy=105, time = 11, longitude = 38.4381)  
 # eot_params: Day of year, time, longitude, standard meridian
 ```
 
-To run the same model using *Google Earth Engine images*, run:
+To run the same model using a *Google Earth Engine image*, run:
 
 ```python
 from geeet.ptjpl import ptjpl_arid
-ET = ptjpl_arid(RH, tair, surf, rnet, NDVI, fapar_max, eot_params=[105,11],band_names=['LE', 'LEc', 'LEs', 'LEi', 'H', 'G', 'Rn'])
-# eot_params: Day of year, time
+ET = ptjpl_arid(img)
 ```
-where all inputs (except `eot_params` and `band_names`) are `ee.Image objects`. 
+where img is a `ee.Image` and all required inputs are given as bands within `img`.  
 
 For more information, see the [notebook example](./examples/notebooks/01_PTJPL.ipynb). 
+
+This function can also be mapped to an `ee.ImageCollection`:
+
+```python
+from geeet.ptjpl import ptjpl_arid
+et_outputs = et_inputs.map(ptjpl_arid)
+```
+where `et_inputs` is an `ee.ImageCollection` with the required inputs (see the [notebook example](./examples/notebooks/02_PTJPL_collection.ipynb)). 
 
 ## Installation
 
