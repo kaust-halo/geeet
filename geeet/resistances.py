@@ -245,7 +245,6 @@ def RN95(U, CH, rough_params, LAI, leaf_width, zU, zT, L=None, Ustar = None, rou
 
         # Wind speed at top of canopy (Uc) (N95 Equation B.4)
         Uc = U*(np.log((CH - d0)/roughU)/(logM-PsiM))  # B.4
-        #Uc = np.maximum(Uc, U)  # to avoid invalid sqrt in RX (A.8)
 
         # "a" factor for Us by Goudriaan (1977) (N95 Equation B.3)
         a=0.28*LAI**(2/3.)*CH**(1/3.)*leaf_width**(-1/3.)

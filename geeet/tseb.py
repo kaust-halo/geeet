@@ -105,7 +105,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
 
     min_LAI = 1.0 # Threshold to use one-source (low LAI) or two-source energy balance (LAI > min_LAI)
     D_0_min = 0.004 # Minimum zero-plane displacement height (m).
-    z_0M_min = 0.003  # Minimum value for the aerodynamic surface roughness length (m).
+    z_0M_min = D_0_min/0.65 * 0.125#0.003  # Minimum value for the aerodynamic surface roughness length (m).
 
     if is_img(img):
         from ee import Number
@@ -405,7 +405,6 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         # Iterative procedure:
         # in each iteration, we only update pixels
         # where LEs was previously negative. 
-        max_iterations=0
         for iteration in range(max_iterations):
             pixelsToUpdate = LEs<0 # in previous iteration, or from initialization
             #### Update stage:
