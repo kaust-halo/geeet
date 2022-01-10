@@ -285,7 +285,7 @@ def compute_fsm(RH, Temp_K, Beta = 1.0, band_name=None):
 
     return Fsm
 
-def compute_ftheta(LAI, theta = 0):
+def compute_ftheta(LAI, theta = 0, band_name = 'f_theta'):
     """
     Compute the fraction of field of view of the infrared radiometer occupied by canopy
     (fractional vegetation cover within the sensor field of view)
@@ -314,6 +314,7 @@ def compute_ftheta(LAI, theta = 0):
         f_theta = Image(1.0).subtract((LAI.multiply(-0.5).divide(cos_theta)).exp())
         f_theta = f_theta.where(f_theta.gt(0.9), 0.9) 
         f_theta = f_theta.where(f_theta.lt(0.05), 0.05)
+        f_theta = f_theta.rename(band_name)
     else:
         f_theta = 1 - np.exp(-0.5*LAI/np.cos(np.radians(theta))) 
         f_theta = np.array(f_theta)

@@ -263,7 +263,7 @@ def PsiH(z_g):
 
     return Psih
 
-def Ustar(U, zU, L=None, rough_params=None, rough_bands = ['ZM','ZH','D0'], band_name=['Ustar'], minValue = 0.35):
+def Ustar(U, zU, L=None, rough_params=None, rough_bands = ['ZM','ZH','D0'], band_name='Ustar', minValue = 0.35):
     """
     Calculate friction velocity (U*)
     u_star = k*U/  (   ln(ζ) - Psim(ζ) - Psim(Z0m/L)  )
@@ -285,9 +285,9 @@ def Ustar(U, zU, L=None, rough_params=None, rough_bands = ['ZM','ZH','D0'], band
             if rough_params is a list, they are retrieved as:
                 Z_0M, _, D_0 = rough_params  
             if rough_params is an ee.Image, they are retrieved using ee.Image.select('band_name') where band_name is
-                the first (for Z0) and second (for D_0) elements of the string list in band_names. 
+                the first (for Z0) and second (for D_0) elements of the string list in rough_bands. 
                 See: geeet.resistances.compute_roughness
-        - band_name (optional, list): The first element is used as the band name to select the Z_0M band in rough_params 
+        - rough_bands (optional, list): The first element is used as the band name to select the Z_0M band in rough_params 
                                        The second element is used as the band name to select the D_0 band in rough_params
                                        Defaults to ['Z0', 'D0'] (see: geeet.resistances.compute_roughness)
         - minValue (optional, scalar): Enforce a minimum value for U*, defaults to 0.35
