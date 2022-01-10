@@ -330,7 +330,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         
             # Finally, recompute LEc using the PT equation (N95 equation 12)
             # for any pixel that still has LEs<0:
-            LEcu2 = taylor.multiply(Rnc).multiply(AlphaPTo).multiply(F_g) 
+            LEcu2 = taylor.multiply(Rnc).multiply(AlphaPTu).multiply(F_g) 
             LEcu = LEcu.where(LEsu.lt(0), LEcu2)
             # and Hc = Rnc-LEc
             Hcu2 = Rnc.subtract(LEcu)
@@ -372,7 +372,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         resultImage = resultImage.addBands(G.rename('G')).addBands(Rn.rename('Rn'))\
             .addBands(Rns.rename('Rns')).addBands(Rnc.rename('Rnc'))
 
-        return resultImage
+        return img.addBands(resultImage)
     else:
         # Retrieve parameters from hybrid functions:
         _, _, rho, cp, _, Lambda, _, taylor = met_params    #[q, ea, rho, cp, s, Lambda, psicr, taylor]
