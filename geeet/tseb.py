@@ -162,7 +162,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
 
 
     if is_img(img):
-        from ee import Image
+        from ee import Image, List, ImageCollection
         # Parameters from hybrid functions:
         taylor = met_params.select('taylor')  # delta / (delta + gamma)
         rho = met_params.select('rho')
@@ -191,7 +191,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         Tc = Tc.where(f_theta.lte(0.1), Tr)
 
         # Initial fluxes using TSEB-parallel
-        Hs = rho.multiply(cp).multiply(Ts.subtract(Ta)).divide(ra.add(rs))   
+        Hs = rho.multiply(cp).multiply(Ts.subtract(Ta)).divide(ra.add(rs))
         LEs  = (Rns.subtract(G)).subtract(Hs)
 
         # initialize Tac = Tc
@@ -199,84 +199,91 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         LE = LEc.add(LEs)
         H = Hc.add(Hs)
 
-        # At this point, we have initial estimates of:
-        # T (c, s) temperatures
-        # LE (c, s) latent heat flux
-        # H (c, s) sensible heat flux
-        # resist (a,s,x) resistances
-        # we now need to iteratively re-calculate all of these variables
-        # but only for pixels where LEs remains negative. 
+        # Prepare an initial image containing all the variables that need to be updated iteratively:
+        initialImg = Tc.addBands(Ts).addBands(Tac).addBands(Hc).addBands(Hs).addBands(LEc).addBands(LEs)\
+        .addBands(ra).addBands(rs).addBands(rx).addBands(ustar).addBands(Image(AlphaPT)).addBands(Image(0))
+        initialImg = initialImg.rename('Tc','Ts','Tac','Hc','Hs','LEc','LEs','Ra','Rs','Rx',\
+            'Ustar','alphaPT','iteration')
+        iterStart = ee.List([initialImg]) # Initial list only contains the initialImg 
+        
+        # Prepare a dummy image collection for the iterative procedure:
+        numList = List.repeat(1, max_iterations)
+        def zeroImg(f):
+            return Image(0)
+        dummyIC = ImageCollection(numList.map(zeroImg))
 
-        # Currently we are using python to make the loop.
-        # TODO: change this so that it is more GEE-friendly.
-        # i.e., currently this is ok only with a few max_iterations (<10)
-        # with larger numbers, it fails (computation too complex). 
-        for iteration in range(max_iterations):
-            # Restrict calculations to where LEs
-            # is negative:
-            pixelsToUpdate = LEs.lt(0) # mask indicating where we should continue processing in 
-                                        # this iteration
-            pixelsToRetain = LEs.gte(0) # mask indicating where we are NOT processing anymore. 
+        ##### Iterative procedure
+        def tseb_series_iteration(img, list):
+            '''
+            Perform one iteration of the TSEB series algorithm to
+            update the temperatures (Tc, Ts, Tac), heat fluxes (H, LE), and resistances
+            The updated values are added to a new image, and this new image is
+            appended at the end of "list". 
+            The updated values are kept only for pixels where the previous 
+            iteration LEs (soil latent heat flux) is negative. 
 
-            # Split all variables that will be updated into
-            # pixels to update (u) versus pixels to retain (no subscript).    
-            LEsu = LEs.updateMask(pixelsToUpdate)
-            LEcu = LEc.updateMask(pixelsToUpdate)
-            LEu = LE.updateMask(pixelsToUpdate)
-            Hcu = Hc.updateMask(pixelsToUpdate)
-            Hsu = Hs.updateMask(pixelsToUpdate)
-            Hu = H.updateMask(pixelsToUpdate)
-            Tcu = Tc.updateMask(pixelsToUpdate)
-            Tsu = Ts.updateMask(pixelsToUpdate)
-            Tacu = Tac.updateMask(pixelsToUpdate)
-            ustaru = ustar.updateMask(pixelsToUpdate)
-            rau = ra.updateMask(pixelsToUpdate)
-            rsu = rs.updateMask(pixelsToUpdate)
-            rxu = rx.updateMask(pixelsToUpdate)
+            Specifically, it computes equations in the Norman et al., 1995 model (N95):
+            Equation 1, 12, A.5 - A.13
 
-            LEs = LEs.updateMask(pixelsToRetain)
-            LEc = LEc.updateMask(pixelsToRetain)
-            LE = LE.updateMask(pixelsToRetain)
-            Hc = Hc.updateMask(pixelsToRetain)
-            Hs = Hs.updateMask(pixelsToRetain)
-            H = H.updateMask(pixelsToRetain)
-            Tc = Tc.updateMask(pixelsToRetain)
-            Ts = Ts.updateMask(pixelsToRetain)
-            Tac = Tac.updateMask(pixelsToRetain)
-            ustar = ustar.updateMask(pixelsToRetain)
-            ra = ra.updateMask(pixelsToRetain)
-            rs = rs.updateMask(pixelsToRetain)
-            rx = rx.updateMask(pixelsToRetain)
-
-            #### Update stage:
-            # In the following code, it is critical that 
-            # any variable that is updated uses the "u" subscript
-            # This includes further equations that
-            # are used to update other variables!
-             
-            ### Update temperatures (Tc, Ts, Tac) using N95 equations (1, A.7-A.13)
+            Inputs:
+                - img: Not needed/not used.  
+                - list: list of ee.Images. Each ee.Image contains the following bands:
+                        - Tc: Temperature of the canopy (K)
+                        - Ts: Temperature of the soil surface (K)
+                        - Tac: Temperature of the air in the canopy layer (K)
+                        - Hc: Sensible heat flux from the canopy source (W/m2)
+                        - Hs: Sensible heat flux from the soil source (W/m2)
+                        - H: Total sensible heat flux (W/m2)
+                        - LEc: Latent heat flux from the canopy source (W/m2)
+                        - LEs: Latent heat flux from the soil source (W/m2) 
+                        - Ra: aerodynamic resistance, in m s-1
+                        - Rs: resistance to transport of heat between soil surface and a height
+                              representing the canopy, in m s-1
+                        - Rx: total boundary layer resistance of the complete canopy of leaves, 
+                              in m s-1
+                        - Ustar: friction velocity (U*)
+                        - L: Monin-Obukhov length 
+                        - alphaPT: Priestly-Taylor coefficient
+            '''
+            ### Previous iteration values (subscript 'o' for old):
+            oldImg = ee.Image(ee.List(list).get(-1))
+            # Here I only select the values that are needed explicitly:
+            # since the .where will do it.. i.e. result = oldImg.where(oldImg.select('LEs').lt(0), updatedImg) 
+            iterationo = oldImg.select('iteration')   
+            Hco = oldImg.select('Hc')
+            LEso = oldImg.select('LEs')
+            rao = oldImg.select('Ra')
+            rso = oldImg.select('Rs')
+            rxo = oldImg.select('Rx')
+            ustaro = oldImg.select('Ustar') 
+            AlphaPTo = oldImg.select('alphaPT')
+        
+            ##### Update values (subscript 'u' for updated): 
+            iterationu = iterationo.add(1)
+            AlphaPTu = AlphaPTo.subtract(0.01)
+            AlphaPTu = AlphaPTu.where(AlphaPTu.lt(0), 0)
+        
+            # Temperatures (Tc, Ts, Tac) using N95 equations (1, A.7-A.13)
             # Linear approximation of Tc (N95 A7):
             # Note that Hc = Rnc - LEc   where LEc = Rnc[alphaPT*Fg*taylor], so 
             # Hc = Rnc * (1 - alphaPT * Fg * taylor)
-            Tclin_num1 = Ta.divide(rau)
-            Tclin_num2 = Tr.divide(rsu.multiply(Image(1).subtract(f_theta)))
-            Tclin_num3 = (Hcu.multiply(rxu).divide(rho.multiply(cp))).multiply((Image(1).divide(rau)).add(Image(1).divide(rsu)).add(Image(1).divide(rxu)))
-            Tclin_denom = (rau.pow(-1)).add(rsu.pow(-1)).add(f_theta.divide(rsu.multiply(Image(1).subtract(f_theta))))
+            Tclin_num1 = Ta.divide(rao)
+            Tclin_num2 = Tr.divide(rso.multiply(Image(1).subtract(f_theta)))
+            Tclin_num3 = (Hco.multiply(rxo).divide(rho.multiply(cp))).multiply((Image(1).divide(rao)).add(Image(1).divide(rso)).add(Image(1).divide(rxo)))
+            Tclin_denom = (rao.pow(-1)).add(rso.pow(-1)).add(f_theta.divide(rso.multiply(Image(1).subtract(f_theta))))
             Tclin = (Tclin_num1.add(Tclin_num2).add(Tclin_num3)).divide(Tclin_denom)
-
             # N95 equation A.12 (TD):
-            Td1 = Tclin.multiply(Image(1).add(rsu.divide(rau)))
-            Td2 = (Hcu.multiply(rxu).divide(rho.multiply(cp))).multiply(Image(1).add(rsu.divide(rxu)).add(rsu.divide(rau)))
-            Td3 = Ta.multiply(rsu.divide(rau))
+            Td1 = Tclin.multiply(Image(1).add(rso.divide(rao)))
+            Td2 = (Hco.multiply(rxo).divide(rho.multiply(cp))).multiply(Image(1).add(rso.divide(rxo)).add(rso.divide(rao)))
+            Td3 = Ta.multiply(rso.divide(rao))
             Td = Td1.add(Td2).subtract(Td3)
             # N95 equation A.11 (deltaTc), i.e. correction to the linear approximation of Tc:
             dTc_num = (Tr.pow(4)).subtract(f_theta.multiply(Tclin.pow(4))).subtract((Image(1).subtract(f_theta)).multiply(Td.pow(4)))
-            dTc_denom1 = (Td.pow(3)).multiply(rsu.divide(rau).add(1)).multiply(4).multiply(Image(1).subtract(f_theta))
+            dTc_denom1 = (Td.pow(3)).multiply(rso.divide(rao).add(1)).multiply(4).multiply(Image(1).subtract(f_theta))
             dTc_denom2 = f_theta.multiply(4).multiply(Tclin.pow(3))
             dTc = dTc_num.divide(dTc_denom1.add(dTc_denom2))
             # N95 equation A.13 (Tc = Tclin + delta Tc)
-            Tcu = Tclin.add(dTc)
-
+            Tcu = Tclin.add(dTc).rename('Tc')
             # N95 equation 1, solving for (1-f(theta))*Ts^n  = Tr^n - f(theta)*Tc^n
             # the RHS of this equation is:
             TsRHS = Tr.pow(4).subtract(f_theta.multiply(Tcu.pow(4)))
@@ -285,81 +292,87 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             # Estimate Ts (N95 equation 1)
             Tsu = (TsRHS.divide(Image(1).subtract(f_theta))).pow(0.25)
             Tsu = Tsu.max(1e-6)   # Force a minimum value for Ts 
-
+            Tsu = Tsu.rename('Ts')
+        
             # Estimate Tac (N95 equation A.4):
-            Tacu = ((Ta.divide(rau)).add(Tsu.divide(rsu)).add(Tcu.divide(rxu)))\
-                    .divide((Image(1).divide(rau)).add(Image(1).divide(rsu)).add(Image(1).divide(rxu)))
-
+            Tacu = ((Ta.divide(rao)).add(Tsu.divide(rso)).add(Tcu.divide(rxo)))\
+                    .divide((Image(1).divide(rao)).add(Image(1).divide(rso)).add(Image(1).divide(rxo)))
+            Tacu = Tacu.rename('Tac')
+        
             # Constraints on Tc and Ts based on DisALEXI
             Tsu = Tsu.where(f_theta.gte(0.9), Tr)
             Tsu = Tsu.where(f_theta.lte(0.1), Tr)
             Tcu = Tcu.where(f_theta.gte(0.9), Tr)
             Tcu = Tcu.where(f_theta.lte(0.1), Tr)
-
-            ### Update sensible heat fluxes, now using the in-series network:
-            Hcu = rho.multiply(cp).multiply(Tcu.subtract(Tacu)).divide(rxu)   # Tc: new; Tac: new; rx: old 
-            Hsu = rho.multiply(cp).multiply(Tsu.subtract(Tacu)).divide(rsu)   # Tc: new; Tac: new; rs: old
-
+        
+            ### Update sensible heat fluxes using the in-series network:
+            Hcu = rho.multiply(cp).multiply(Tcu.subtract(Tacu)).divide(rxo).rename('Hc')   # Tc: new; Tac: new; rx: old 
+            Hsu = rho.multiply(cp).multiply(Tsu.subtract(Tacu)).divide(rso).rename('Hs')   # Tc: new; Tac: new; rs: old
+        
             ### Update latent heat fluxes as a residual of the energy balance
-            LEsu = Rns.subtract(G).subtract(Hsu) # Hs: new
-            LEcu = Rnc.subtract(Hcu)             # Hc: new
-
+            LEsu = Rns.subtract(G).subtract(Hsu).rename('LEs') # Hs: new
+            LEcu = Rnc.subtract(Hcu).rename('LEc')             # Hc: new
+        
             ### Update total fluxes
-            LEu = LEcu.add(LEsu)                # LEc: new; LEs: new
-            Hu = Hcu.add(Hsu)                   # Hc: new;  Hs: new
+            LEu = LEcu.add(LEsu).rename('LE')                # LEc: new; LEs: new
+            Hu = Hcu.add(Hsu).rename('H')                   # Hc: new;  Hs: new
             
             ### Update M-O length (L) and friction velocity
-            L = MOL(ustaru, Ta, rho, cp, Lambda, Hu, LEu)         #Ustar: old; H: new; LE: new 
-            ustaru = compute_ustar(U, zU, L, rough_params = rough)  # L: new; 
-
+            Lu = MOL(ustaro, Ta, rho, cp, Lambda, Hu, LEu)         #Ustar: old; H: new; LE: new 
+            Lu = Lu.rename('L')
+            ustaru = compute_ustar(U, zU, Lu, rough_params = rough)  # L: new; 
+        
             ### Update resistances (rau, rsu, rxu)
-            # here we are calling RN95, but need to mask to ensure the resistances
-            # are recalcuated only where needed. 
-            resistU = RN95(U, CH, rough, LAI, Leaf_width, zU, zT, Ustar = ustaru, L=L)  # Ustar: new; L: new
-            rau = resistU.select('Ra').updateMask(pixelsToUpdate)
-            rsu = resistU.select('Rs').updateMask(pixelsToUpdate)
-            rxu = resistU.select('Rx').updateMask(pixelsToUpdate)
-
-            ### Update the PT constant (alpha):
-            AlphaPT -= 0.01 
-            AlphaPT = np.maximum(AlphaPT, 0)  # do not let it drop below 0
-
+            resistU = RN95(U, CH, rough, LAI, Leaf_width, zU, zT, Ustar = ustaru, L=Lu)  # Ustar: new; L: new
+            rau = resistU.select('Ra')
+            rsu = resistU.select('Rs')
+            rxu = resistU.select('Rx')
+        
             # Finally, recompute LEc using the PT equation (N95 equation 12)
             # for any pixel that still has LEs<0:
-            LEcu2 = taylor.multiply(Rnc).multiply(AlphaPT*F_g) 
+            LEcu2 = taylor.multiply(Rnc).multiply(AlphaPTu).multiply(F_g) 
             LEcu = LEcu.where(LEsu.lt(0), LEcu2)
             # and Hc = Rnc-LEc
             Hcu2 = Rnc.subtract(LEcu)
             Hcu = Hcu.where(LEsu.lt(0), Hcu2)
-
-            ### Finally, update the actual variables by 
-            # joining the "retained" and "updated" pixels:
-            # note: unmask() removes the mask, and sets 0 everywhere. 
-            # here LEs contains the retained values
-            # LEsu contains the updated values. 
-            # so adding them is ok (0+value | value+0)
-            LEs = LEs.unmask().add(LEsu.unmask())
-            LEc = LEc.unmask().add(LEcu.unmask())
-            LE = LE.unmask().add(LEu.unmask())
-            Hc = Hc.unmask().add(Hcu.unmask())
-            Hs = Hs.unmask().add(Hsu.unmask())
-            H = H.unmask().add(Hu.unmask())
-            Tc = Tc.unmask().add(Tcu.unmask())
-            Ts = Ts.unmask().add(Tsu.unmask())
-            Tac = Tac.unmask().add(Tacu.unmask())
-            ustar = ustar.unmask().add(ustaru.unmask())
-            ra = ra.unmask().add(rau.unmask())
-            rs = rs.unmask().add(rsu.unmask())
-            rx = rx.unmask().add(rxu.unmask())
-       
-            # If no negative LEs remains, break iterations. 
-            ######
         
-        LE = LE.addBands(LEs).addBands(LEc).addBands(Ts).addBands(Tc).addBands(Hs)\
-            .addBands(Hc).addBands(G).addBands(Rn).addBands(Rns).addBands(Rnc)\
-                .addBands(ra).addBands(rs).addBands(rx)\
-                    .rename(['LE', 'LEs','LEc', 'Ts', 'Tc','Hs','Hc','G','Rn','Rns','Rnc', 'Ra', 'Rs', 'Rx'])
-        return img.addBands(LE)
+            # End of updates in this iteration
+            # These are now included in "updatedImg", an image
+            # containing all the updated values. However, note that we will
+            # not necessarilly use the updated values everywhere - 
+            # only where LEs<0 in the previous iteration.  
+            updatedImg = Tcu.addBands(Tsu).addBands(Tacu)\
+                .addBands(Hcu).addBands(Hsu).addBands(LEcu).addBands(LEsu)\
+                .addBands(rau).addBands(rsu).addBands(rxu)\
+                .addBands(ustaru).addBands(AlphaPTu).addBands(iterationu)
+            updatedImg = updatedImg.rename('Tc','Ts','Tac','Hc','Hs',\
+                'LEc','LEs','Ra','Rs','Rx','Ustar','alphaPT','iteration')
+        
+            # Finally, we select the values we will keep
+            # (we only update pixels where LEs was previously negative)
+            # These values will be the "old" Img in the next iteration
+            resImg = oldImg.where(LEso.lt(0), updatedImg)
+            return ee.List(list).add(resImg)
+        ##### End of iterative procedure definition.
+         
+        # Call the iterative function using the dummy image collection and the initial estimates:
+        iterListRes = ee.List(dummyIC.iterate(tseb_series_iteration, iterStart))
+        resultImage = ee.Image(iterListRes.get(-1))  # The result is the last value of this list. 
+
+        # Compute the total fluxes 
+        LEs = resultImage.select('LEs')
+        LEc = resultImage.select('LEc')
+        LE = LEs.add(LEc).rename('LE')
+        Hs = resultImage.select('Hs')
+        Hc = resultImage.select('Hc')
+        H = Hs.add(Hc).rename('H')
+        resultImage = resultImage.addBands(LE).addBands(H)
+
+        # Also return other fluxes:
+        resultImage = resultImage.addBands(G.rename('G')).addBands(Rn.rename('Rn'))\
+            .addBands(Rns.rename('Rns')).addBands(Rnc.rename('Rnc'))
+
+        return img.addBands(resultImage)
     else:
         # Retrieve parameters from hybrid functions:
         _, _, rho, cp, _, Lambda, _, taylor = met_params    #[q, ea, rho, cp, s, Lambda, psicr, taylor]
