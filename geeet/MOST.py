@@ -403,4 +403,5 @@ def MOL(u_star, Ta_K, rho, cp, Lambda, H, LE):
         Hv[Hv<=0] = 1e-10 # avoiding div/0
         L = -u_star**3 / (Hv*karman*gravity/Ta_K*rho*cp)
         L = np.array(L)
+        L[np.isnan(L)]=1e10 # replace nans by a large value. 
     return L

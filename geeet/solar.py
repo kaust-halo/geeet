@@ -319,7 +319,7 @@ def compute_g(doy, time, Rns, longitude = None, G_params = [0.31, 74000, 10800])
         - G (numpy array or ee.Image): the soil heat flux.
     References 
     ----------
-    Santanello et al., 2003
+    Santanello and Friedl, 2003
     '''
     from geeet.common import is_img
     import numpy as np

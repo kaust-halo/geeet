@@ -63,12 +63,15 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
                 CH = 0.3, F_g = 1.0, k_par = 0.5, k_rns=0.45,    
                 AlphaPT = 1.26, # Default Priestly-Taylor coefficient for canopy potential transpiration
                 G_params = [0.31, 74000, 10800],
-                Leaf_width = 0.1, zU = None, zT = None
+                Leaf_width = 0.1, zU = None, zT = None,
+                max_iterations = 5
                 ):
     """
     Priestley-Taylor Two Source Energy Balance Model
     Function to compute TSEB energy fluxes using a single observation
     of composite radiometric temperature using resistances in series (i.e. for dense vegetation). 
+
+    All inputs are given as keyword parameters. 
 
     Inputs:
     Either a single ee.Image (img) with the following inputs as bands (unless otherwise specified) 
@@ -76,18 +79,57 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
 
     - Radiometric temperature (Kelvin) e.g. Land surface temperature:   radiometric_temperature (band) or Tr (numpy array)
     - Normalized Difference Vegetation Index (NDVI): NDVI (band) or NDVI (numpy array)
-    - Leaf Area Index (LAI; m2/m2): LAI (band) or LAI (numpy array)
+    - Surface pressure (Pa): surface_pressure (band) or P (numpy array)
+    - Air temperature (K): air_temperature (band) or Ta
+    - Wind speed (m/s): wind_speed (band) or U
+    - Downwelling shortwave radiation (W/m2): solar_radiation (band) or Sdn (numpy array)
+    - Downwelling longwave radiation (W/m2): thermal_radiation (band) or Ldn (numpy array) 
+
+    Alternative inputs (TODO)
+    These inputs could be supplied instead of computed - NOT YET IMPLEMENTED
+    - Net radiation (W/m2): net_radiation (band) or Rn (numpy array) TODO  - could replace Sdn, Ldn, albedo
+    - Leaf Area Index (LAI; m2/m2): LAI (band) or LAI (numpy array)  TODO - include check if LAI is given 
+            (currently it is computed by default)
 
     Scalar inputs:
-    the following scalar inputs can be supplied either as a property in img or as parameters:
     - zU: Height of wind speed measurement (m) (or height of the "surface" level if data is from a climate model)
     - zT: Height of measurement of air temperature (m) (or height of the "surface" level if data is from a climate model)
-    - leaf_width
-    - CH: canopy height 
-    - Leaf_width: 
+    - CH: canopy height in meters
+    - Leaf_width: Parameter small 's' in Norman et al., 1995 - leaf size in meters (e.g. Equation A.8)
     - AlphaPT: Priestly Taylor coefficient for canopy potential transpiration (defaults to 1.26)
     - F_g: fraction of vegetation that is green: default to 1.0
+    - doy: day of year of observation - either a scalar or a property in img
+    - time: time of observation - either a scalar or a property in img
+    - Vza: viewing zenith angle - either a scalar or a property in img
+    - max_iterations: Maximum number of iterations allowed for the iterative process.
+    - k_par: parameter controlling the calculation of LAI from NDVI
+    - k_rns: parameter controlling the partitioning of net radiation to the soil/vegetation.
+    - G_params: list of length 3 containing the parameters for the calculation of soil heat flux:
+                 [maximum ratio of G/Rns,  spread of the cosine wave,  phase shift ]
+                 (Santanello and Friedl, 2003)
 
+    Outputs:
+    The following bands are added to the input image (img) or 
+    a dictionary with the following numpy arrays is returned:
+    - LE: Total latent heat flux, in W/m2
+    - LEs: latent heat flux from the soil component, in W/m2
+    - LEc: latent heat flux from the canopy component, in W/m2
+    - H: Total sensible heat flux, in W/m2
+    - Hs: sensible heat flux from the soil component, in W/m2
+    - Hc: sensible heat flux from the canopy component, in W/m2
+    - G: ground heat flux, in W/m2
+    - Rn: net radiation, in W/m2
+    - Rns: net radiation partitioned to the soil surface, in W/m2
+    - Rnc: net radiation partitioned to the canopy, in W/m2
+    - Ts: soil surface temperature, in K
+    - Tc: canopy temperature, in K
+    - Tac: temperature of air in the canopy layer, in K
+    - Ra: aerodynamic resistance, in m s-1
+    - Rs: resistance to transport of heat between soil surface and a height
+          representing the canopy, in m s-1
+    - Rx: total boundary layer resistance of the complete canopy of leaves, 
+          in m s-1
+    - iteration: number of iterations to reach a positive LEs
     """
     from geeet.vegetation import compute_lai, compute_ftheta, compute_Rns
     from geeet.solar import compute_solar_angles, compute_Rn, compute_g
@@ -97,13 +139,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
     from geeet.MOST import MOL
 
     # Hard-coded scalar parameters
-    max_iterations = 5 # for the main TSEB loop (LEs)
-    # Note that only a few iterations is ok.. (empirically.. 5 is ok)
-    # 5: it's ok.
-    # 10: works. 
-    # 100: computation is too complex.
-
-    min_LAI = 1.0 # Threshold to use one-source (low LAI) or two-source energy balance (LAI > min_LAI)
+    min_LAI = 1.0 # Threshold to use minimum D0 and ZM values:
     D_0_min = 0.004 # Minimum zero-plane displacement height (m).
     z_0M_min = D_0_min/0.65 * 0.125#0.003  # Minimum value for the aerodynamic surface roughness length (m).
 
@@ -418,8 +454,13 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         # Iterative procedure:
         # in each iteration, we only update pixels
         # where LEs was previously negative. 
+        it = np.zeros_like(LE)
         for iteration in range(max_iterations):
             pixelsToUpdate = LEs<0 # in previous iteration, or from initialization
+            it[pixelsToUpdate] = iteration+1
+            if np.all(pixelsToUpdate == False):
+                break
+
             #### Update stage:
             ### Update temperatures (Tc, Ts, Tac) using N95 equations (1, A.5-A.13)
             # Linear approximation of Tc (N95 A7):
@@ -504,7 +545,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             Hc[pixelsToUpdate] = Hcu[pixelsToUpdate]
             H[pixelsToUpdate] = Hu[pixelsToUpdate]
 
-            if np.all(nLEs == False):
-                break
-
-        return LE, LEs, LEc, Hs, Hc, G, Rn, Rns, Rnc, Ts, Tc, ra, rs, rx
+        et_tseb_out = LE, LEs, LEc, Hs, Hc, G, Rn, Rns, Rnc, Ts, Tc, Tac, ra, rs, rx, it
+        et_tseb_out_keys = ['LE', 'LEs', 'LEc', 'Hs', 'Hc', 'G', 'Rn', 'Rns', 'Rnc', 'Ts', 'Tc', 'Tac', 'Ra', 'Rs', 'Rx', 'iteration']
+        et_tseb_out = dict(zip(et_tseb_out_keys, et_tseb_out))
+        return et_tseb_out
