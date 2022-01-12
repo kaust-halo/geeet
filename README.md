@@ -44,14 +44,14 @@ The only requirement is a modern python installation (e.g. >3.6) and [numpy](htt
 
 If you have a GEE account and the earthengine API installed, we recommend first taking a look at [this notebook](https://github.com/kaust-halo/geeet/blob/main/examples/notebooks/01_geeet.ipynb) demonstrating the basic use of the hybrid ET models with a simple toy example. In a nutshell, running one of the pre-built models can be done in two lines of code, e.g.:
 
-```
+```python
 from geeet.tseb import import tseb_series
 et_tseb = tseb_series(img = sample_tseb_inputs) 
 ```
 
-where [sample_tseb_inputs] is a [ee.Image] containing all the necessary inputs for the TSEB model. You can use the same function to run the same model with numpy arrays:
+where `sample_tseb_inputs` is a `ee.Image` containing all the necessary inputs for the TSEB model. You can use the same function to run the same model with numpy arrays:
 
-```
+```python
 et_tseb_out = tseb_series(\
     Tr = Tr, Alb = albedo, NDVI = NDVI, P = P, Ta = Ta, U = U, \
     Sdn = Sdn, Ldn = Ldn, doy = doy, time = Time, Vza = Vza,\
@@ -111,7 +111,7 @@ Contributions are welcome. Please [open an issue](https://github.com/kaust-halo/
 - report a bug
 - report an issue
 
-You can also submit a [pull requests](https://github.com/kaust-halo/geeet/pulls) if you have another working ET model - at least with numpy arrays as inputs. 
+You can also submit a [pull request](https://github.com/kaust-halo/geeet/pulls) if you have another working ET model - at least with numpy arrays as inputs. 
 
 ## Credits
 
