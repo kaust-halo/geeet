@@ -106,7 +106,7 @@ def ptjpl_arid(img=None, # ee.Image with inputs as bands (takes precedence over 
                 are renamed using this list. Ignored if inputs are numpy arrays.            
 
     Outputs: 
-        - ET (np.stack or ee.Image): np.stack containing numpy arrays with the following
+        - ET (dictionary or ee.Image): ndictionary containing numpy arrays with the following
                                   components, or the following bands are added to the input image:
         -     LE: the latent heat flux.
         -     LEc: the canopy transpiration component of LE.
@@ -227,9 +227,9 @@ def ptjpl_arid(img=None, # ee.Image with inputs as bands (takes precedence over 
         Rn = Rn * Mask
         LAI = LAI * Mask
          
-        # output as np.stack:
-        ET=np.stack((LE, LEc, LEs, LEi, H, G, Rn))
-
+        ET=LE, LEc, LEs, LEi, H, G, Rn
+        et_keys = ['LE', 'LEc', 'LEs', 'LEi', 'H', 'G', 'Rn']
+        ET = dict(zip(et_keys, ET))
     return ET
 
 
