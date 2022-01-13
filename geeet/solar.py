@@ -97,9 +97,9 @@ def compute_solar_declination(doy):
     Output: solar_declination (np.array or ee.Number; matches the input type) in radians
     """
     import numpy as np
-    from ee import Number
     DTOR = np.deg2rad(1) # constant to convert degrees to radians
     if is_eenum(doy):
+        from ee import Number
         doy_scaled = doy.multiply(0.9856)
         sin1 = doy_scaled.add(356.6).multiply(DTOR).sin()
         sin2 = sin1.multiply(1.9165).add(doy_scaled).add(278.97).multiply(DTOR).sin()
