@@ -549,3 +549,49 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         et_tseb_out_keys = ['LE', 'LEs', 'LEc', 'Hs', 'Hc', 'G', 'Rn', 'Rns', 'Rnc', 'Ts', 'Tc', 'Tac', 'Ra', 'Rs', 'Rx', 'iteration']
         et_tseb_out = dict(zip(et_tseb_out_keys, et_tseb_out))
         return et_tseb_out
+
+main_ref="Norman, J.M., et al. (1995). \"Source approach for estimating soil and \
+vegetation energy fluxes in observations of directional radiometric surface \
+temperature\". Agricultural and Forest Meteorology, 77(3), pp. 263-293. \
+https://doi.org/10.1016/0168-1923(95)02265-Y"
+
+# Citation:
+# cite() - main reference only
+def cite():
+    print(main_ref)
+#cite_all() - all references
+def cite_all():
+    for ref in all_refs:
+        print(ref)
+
+all_refs=["Campbell, G. S., & Norman, J. M. \
+\"Introduction to environmental biophysics (2nd ed.) (1998)\"\
+New York: Springer, pp. 168-169\
+http://dx.doi.org/10.1007/978-1-4612-1626-1",
+"Colaizzi, P. D., Kustas, William P., Anderson, Martha C., \
+Agam, Nurit, Tolk, Judy A., Evett, Steven R., Howell, Terry A., \
+Gowda, Prasanna H., and O\'Shaughnessy, Susan A. \
+\"Two-source energy balance model estimates of evapotranspiration \
+using component and composite surface temperatures\" (2012) \
+Advances in Water Resources, 50, pp. 134-151. \
+https://doi.org/10.1016/j.advwatres.2012.06.004",
+"Kustas, W. P. and J. M. Norman  \
+\"Evaluation of soil and vegetation heat flux predictions using a \
+simple two-source model with radiometric temperatures for partial \
+canopy cover\" (1999) Agricultural and Forest Meteorology, 94(1), \
+pp. 13-29. https://doi.org/10.1016/S0168-1923(99)00005-2",
+"Norman, J. M.,  Kustas, W. P., and Humes, K. S. \
+\"Source approach for estimating soil and vegetation energy fluxes in \
+observations of directional radiometric surface temperature\" (1995) \
+Agricultural and Forest Meteorology, 77(3), pp. 263-293. \
+https://doi.org/10.1016/0168-1923(95)02265-Y",
+"Joseph A. Santanello Jr. and Mark A. Friedl. \
+\"Diurnal Covariation in Soil Heat Flux and Net Radiation\" (2003) \
+J. Appl. Meteor., 42, pp. 851-862. Remote Sensing of Environment, \
+112 (3), pp. 901-919., \
+http://dx.doi.org/10.1175/1520-0450(2003)042<0851:DCISHF>2.0.CO;2",
+"Zhuang, Q. and B. Wu \
+\"Estimating Evapotranspiration from an Improved Two-Source Energy \
+Balance Model Using ASTER Satellite Imagery\" (2015) \
+Water, 7(12), pp. 6673-6688. \
+https://doi.org/10.3390/w7126653"]

@@ -371,7 +371,8 @@ def compute_Rns(Rn, LAI, solar_angles=None, use_zenith = False, k=0.6, LAI_thre 
 
     References:
     ----------
-    Zhuangi and Wu, 2015    Fisher et al., 2008
+    Zhuang and Wu, 2015    
+    Fisher et al., 2008
     Aragon et al., 2018
     """
     DTORAD = np.pi/180
@@ -410,11 +411,3 @@ def compute_Rns(Rn, LAI, solar_angles=None, use_zenith = False, k=0.6, LAI_thre 
         Rns = Rn*np.exp(exp_term)
         Rns = np.array(Rns)
     return Rns
-
-""" References
-Zhuang, Q.; Wu, B. Estimating Evapotranspiration from an Improved Two-Source Energy 
-Balance Model Using ASTER Satellite Imagery. Water 2015, 7, 6673-6688. 
-https://doi.org/10.3390/w7126653 
-
-
-"""
