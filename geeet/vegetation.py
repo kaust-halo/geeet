@@ -120,6 +120,173 @@ def compute_lai(NDVI, k_par = 0.5, band_name = None):
     return LAI
 
 
+def lai_houborg2018(blue = None, green = None, red = None, nir = None, \
+    swir1 = None, swir2 = None, additional_models = False, band_name = None):
+    '''
+    Hard-coded Cubist-based LAI model from a hybrid training approach
+    described in Houborg and McCabe (2018), ISPRS J. Photogramm., 135, 173-188 
+    (https://doi.org/10.1016/j.isprsjprs.2017.10.004)
+
+    The model was trained using data from a desert environment region with 
+    irrigated agricultural fields (Al Kharj, Saudi Arabia). The data included 
+    in-situ measurements (n=87) and from a physically-based model (REGFLEC; n=1713). 
+    Applicable only for this region using Landsat-8 surface reflectance data. 
+ 
+    Default model (equation 1 in Houborg and McCabe, 2018):
+    Rule 1 (MSR <= 1.1384):
+    LAI = -1.852 - 0.456 SR + 2.45 NDVI + 15.87 NDVI^2 + 0.8 EVI2 + 31.56 EVI2^2
+        - 3.64 OSAVI - 36.35 OSAVI^2 + 1.5 EVI - 3.3 EVI^2 + 3.8 MSR
+        - 4.38 NDWI - 5.96 NDWI^2 - 0.38 NDWI2 + 0.27 NDWI2^2
+    
+    Rule 2 (MSR > 1.1384):
+    LAI = 3.061 - 0.004 SR + 87.32 NDVI - 19.65 NDVI^2 + 94.43 EVI2 - 29.5 EVI2^2
+        - 172.66 OSAVI + 38.7 OSAVI^2 - 0.87 EVI - 2.95 EVI^2 + 3.45 MSR
+        - 5.34 NDWI - 2.35 NDWI^2 - 18.08 NDWI2 + 14.54 NDWI2^2  
+
+    Inputs: 
+    - blue (numpy array or ee.Image): surface reflectance blue band
+    - red (numpy array or ee.Image): surface reflectance red band
+    - nir (numpy array or ee.Image): surface reflectance near-infrared band
+    - swir1 (numpy array or ee.Image): surface reflectance short-wave infrared band 1
+    - swir2 (numpy array or ee.Image): surface reflectance short-wave infrared band 2
+
+    Optional inputs:
+    - additional_models (boolean): If true, it computes two additional cubist models
+        (See below). These additional models don't appear on the paper. They require
+        that the green band is also provided. 
+    - green (numpy array or ee.Image): surface reflectance green band. Required only if
+        additional_models is True. 
+    - band_name (str): rename the output using band_name
+
+    Outputs:
+    - lai (numpy array or ee.Image): leaf area index
+
+    If "additional_models" is true, LAI will be based on a combination
+    of three models, specifically:
+    
+    0.4*(default model) + 0.3*(additional model 1) + 0.3*(additional model 2)
+    
+    Additional model 1:
+    Rule 1 (MSR <= 1.13838):
+    LAI = -2.9213822 - 25.32 OSAVI^2 + 21.57 EVI2^2 + 5.35 MSR + 9.93 NDVI^2
+          - 7.01 OSAVI - 0.342 SR - 8.6 NDWI^2 - 6.15 NDWI + 4.22 NDVI
+          + 3.92 EVI2 - 0.53 NDWI2 + 0.48 NDWI2^2
+
+    Rule 2 (MSR > 1.13838):
+    LAI = 3.5351541 - 173.11 OSAVI + 88.72 NDVI + 94.29 EVI2 + 33.64 OSAVI^2
+        - 31.69 EVI2^2 - 20.64 NDWI2 - 18.62 NDVI^2 + 17.36 NDWI2^2
+        + 3.31 MSR - 5.32 NDWI - 2.23 NDWI^2 - 0.003 SR
+
+    Additional Model 2
+    Rule 1 (GRVI <= 2.41101):
+    LAI = -1.1382301 + 1.826 SR - 28.13 OSAVI^2 + 29.04 EVI2^2 - 12.68 OSAVI
+          - 0.719 GRVI + 5.52 EVI2 + 4.73 NDVI + 2.97 GNDVI^2 + 1.03 GNDVI
+          - 0.31 MTVI2 - 0.41 MTVI2^2
+
+    Rule 2 (GRVI > 2.41101):
+    LAI = 0.028714 - 117.51 OSAVI + 66.55 EVI2 + 44.51 NDVI + 13.99 NDVI^2
+      - 12.33 GNDVI^2 + 8.01 MTVI2 + 0.968 GRVI - 7.91 OSAVI^2
+      - 8.07 EVI2^2 - 6.26 MTVI2^2 + 5.1 GNDVI - 0.052 SR
+    
+
+    References
+    ----------
+    Houborg and McCabe (2018)
+    + references appearing in Table 3
+    '''
+    if is_img(blue):
+        # Compute vegetation indices used in this model
+        # EVI, EVI2, MSR, NDVI, NDWI, NDWI2, OSAVI, SR
+        # as defined in Houborg et al., 2018
+
+        # Enhanced VI (EVI):
+        EVI = nir.subtract(red).multiply(2.5)\
+            .divide(nir.add(red.multiply(6)).subtract(blue.multiply(7.5)).add(1))
+        EVIp2 = EVI.pow(2)
+        # 2-band EVI:
+        EVI2 = (nir.subtract(red)).multiply(2.5)\
+            .divide(nir.add(red.multiply(2.4)).add(1))
+        EVI2p2 = EVI2.pow(2)
+        # Mid-infrared simple ratio (MSR):
+        MSR = nir.divide(swir1)
+        # Normalized difference vegetation index (NDVI):
+        NDVI = (nir.subtract(red)).divide(nir.add(red))
+        NDVIp2 = NDVI.pow(2)
+        # Normalized difference water index (NDWI):
+        NDWI = (nir.subtract(swir1)).divide(nir.add(swir1)).add(0.24)
+        NDWIp2 = NDWI.pow(2)
+        # Normalized difference water index 2 (NDWI2):
+        NDWI2 = (nir.subtract(swir2)).divide(nir.add(swir2)).add(0.22)
+        NDWI2p2 = NDWI2.pow(2)
+        # Optimized soil adjusted vegetation index (OSAVI):
+        OSAVI = (nir.subtract(red)).multiply(1.16)\
+            .divide(nir.add(red).add(0.16))
+        OSAVIp2 = OSAVI.pow(2)
+        # Simple ratio:
+        SR = nir.divide(red)
+
+        # rules:
+        lai1 = (EVI.multiply(1.5)).subtract(EVIp2.multiply(3.3))\
+            .add(EVI2.multiply(0.8)).add(EVI2p2.multiply(31.56))\
+            .add(MSR.multiply(3.8))\
+            .add(NDVI.multiply(2.45)).add(NDVIp2.multiply(15.87))\
+            .subtract(NDWI.multiply(4.38)).subtract(NDWIp2.multiply(5.96))\
+            .subtract(NDWI2.multiply(0.38)).add(NDWI2p2.multiply(0.27))\
+            .subtract(OSAVI.multiply(3.64)).subtract(OSAVIp2.multiply(36.35))\
+            .subtract(SR.multiply(0.456)).subtract(1.852)
+
+            
+        lai2 = (EVI.multiply(-0.87)).subtract(EVIp2.multiply(2.95))\
+            .add(EVI2.multiply(94.43)).subtract(EVI2p2.multiply(29.5))\
+            .add(MSR.multiply(3.45))\
+            .add(NDVI.multiply(87.32)).subtract(NDVIp2.multiply(19.65))\
+            .subtract(NDWI.multiply(5.34)).subtract(NDWIp2.multiply(2.35))\
+            .subtract(NDWI2.multiply(18.08)).add(NDWI2p2.multiply(14.54))\
+            .subtract(OSAVI.multiply(172.66)).add(OSAVIp2.multiply(38.7))\
+            .subtract(SR.multiply(0.004)).add(3.061)
+
+        # Default model:
+        lai = lai1.where(MSR.gt(1.1384), lai2)
+        lai = lai.rename(band_name)
+
+    else:
+        # Compute vegetation indices used in this model
+        # EVI, EVI2, MSR, NDVI, NDWI, NDWI2, OSAVI, SR
+        # as defined in Houborg et al., 2018
+
+        # Enhanced VI (EVI):
+        EVI = np.minimum(2.5*(nir-red)/(nir+6*red-7.5*blue+1),0.99)
+        # 2-band EVI:
+        EVI2 = 2.5*(nir-red)/(nir+2.4*red+1) 
+        # Mid-infrared simple ratio (MSR):
+        MSR = nir/swir1
+        # Normalized difference vegetation index (NDVI):
+        NDVI = (nir-red)/(nir+red)
+        # Normalized difference water index (NDWI):
+        NDWI = (nir-swir1)/(nir+swir1) + 0.24 
+        # Normalized difference water index 2 (NDWI2):
+        NDWI2 = (nir-swir2)/(nir+swir2) + 0.22 
+        # Optimized soil adjusted vegetation index (OSAVI):
+        OSAVI = (nir-red)*1.16/(nir+red+0.16)
+        # Simple ratio:
+        SR = nir/red
+
+        # rules:
+        lai1 = 1.5*EVI-3.3*(EVI**2)+0.8*EVI2+31.56*(EVI2**2)+3.8*MSR\
+            + 2.45*NDVI + 15.87*(NDVI**2) - 4.38*NDWI - 5.96*(NDWI**2)\
+            - 0.38*NDWI2 + 0.27*(NDWI2**2) - 3.64*OSAVI - 36.35*(OSAVI**2)\
+            - 0.456*SR - 1.852
+        lai2 = -0.87*EVI-2.95*(EVI**2)+94.43*EVI2-29.5*(EVI2**2)+3.45*MSR\
+            + 87.32*NDVI - 19.65*(NDVI**2) - 5.34*NDWI - 2.35*(NDWI**2)\
+            - 18.08*NDWI2 + 14.54*(NDWI2**2) - 172.66*OSAVI + 38.7*(OSAVI**2)\
+            - 0.004*SR + 3.061
+
+        # model:
+        lai = np.where(MSR<=1.1384, lai1, lai2)
+        lai = np.maximum(lai, 0)
+    return lai
+
+
 def compute_fg(NDVI, band_name=None):
     '''
     Function to compute the green canopy fraction
