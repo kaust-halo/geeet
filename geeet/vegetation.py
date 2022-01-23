@@ -2,6 +2,7 @@
 fapar, fipar, vegetation cover, LAI, etc. and other biophysical parameters
 (green canopy fraction, plant temperature and moisture constraints, soil moisture constraint)
 """
+from audioop import add
 from geeet.common import is_eenum, is_img
 import numpy as np
 
@@ -178,14 +179,14 @@ def lai_houborg2018(blue = None, green = None, red = None, nir = None, \
         + 3.31 MSR - 5.32 NDWI - 2.23 NDWI^2 - 0.003 SR
 
     Additional Model 2
-    Rule 1 (GRVI <= 2.41101):
+    Rule 1 (GSR <= 2.41101):
     LAI = -1.1382301 + 1.826 SR - 28.13 OSAVI^2 + 29.04 EVI2^2 - 12.68 OSAVI
-          - 0.719 GRVI + 5.52 EVI2 + 4.73 NDVI + 2.97 GNDVI^2 + 1.03 GNDVI
+          - 0.719 GSR + 5.52 EVI2 + 4.73 NDVI + 2.97 GNDVI^2 + 1.03 GNDVI
           - 0.31 MTVI2 - 0.41 MTVI2^2
 
-    Rule 2 (GRVI > 2.41101):
+    Rule 2 (GSR > 2.41101):
     LAI = 0.028714 - 117.51 OSAVI + 66.55 EVI2 + 44.51 NDVI + 13.99 NDVI^2
-      - 12.33 GNDVI^2 + 8.01 MTVI2 + 0.968 GRVI - 7.91 OSAVI^2
+      - 12.33 GNDVI^2 + 8.01 MTVI2 + 0.968 GSR - 7.91 OSAVI^2
       - 8.07 EVI2^2 - 6.26 MTVI2^2 + 5.1 GNDVI - 0.052 SR
     
 
@@ -249,6 +250,79 @@ def lai_houborg2018(blue = None, green = None, red = None, nir = None, \
         lai = lai1.where(MSR.gt(1.1384), lai2)
         lai = lai.rename(band_name)
 
+        if additional_models:
+            # Compute two additional models and output a linear combination 
+            # of the three models instead of the default model.
+            # Requires the green band
+
+            # Green normalized difference vegetation index (GNDVI):
+            GNDVI = (nir.subtract(green)).divide(nir.add(green))
+            GNDVIp2 = GNDVI.pow(2)
+            # Green simple ratio (GSR):
+            GSR = nir.divide(green)
+            # Modified triangular vegetation index 2 (MTVI2):
+            mtvi2root = (nir.multiply(2).add(1)).pow(2)\
+                        .subtract(nir.multiply(6))\
+                        .add(nir.sqrt().multiply(5))\
+                        .subtract(0.5)
+            MTVI2 = ((nir.subtract(green)).multiply(1.2)\
+                    .subtract((red.subtract(green)).multiply(2.5)))\
+                    .multiply(1.5).divide(mtvi2root.sqrt())
+            MTVI2p2 = MTVI2.pow(2)
+
+            # rules
+            additional_model1_lai1 = \
+            (EVI2.multiply(3.92)).add(EVI2p2.multiply(21.57))\
+            .add(MSR.multiply(5.35))\
+            .add(NDVI.multiply(4.22)).add(NDVIp2.multiply(9.93))\
+            .subtract(NDWI.multiply(6.15)).subtract(NDWIp2.multiply(8.6))\
+            .subtract(NDWI2.multiply(0.53)).add(NDWI2p2.multiply(0.48))\
+            .subtract(OSAVI.multiply(7.01)).subtract(OSAVIp2.multiply(25.32))\
+            .subtract(SR.multiply(0.342)).subtract(2.9213822)
+
+            additional_model1_lai2 = \
+            (EVI2.multiply(94.29)).subtract(EVI2p2.multiply(31.69))\
+            .add(MSR.multiply(3.31))\
+            .add(NDVI.multiply(88.72)).subtract(NDVIp2.multiply(18.62))\
+            .subtract(NDWI.multiply(5.32)).subtract(NDWIp2.multiply(2.23))\
+            .subtract(NDWI2.multiply(20.64)).add(NDWI2p2.multiply(17.36))\
+            .subtract(OSAVI.multiply(173.11)).add(OSAVIp2.multiply(33.64))\
+            .subtract(SR.multiply(0.003)).add(3.5351541)
+
+            additional_model1_lai = additional_model1_lai1.where(MSR.gt(1.1384), \
+                additional_model1_lai2)
+
+            additional_model2_lai1 = \
+            (EVI2.multiply(5.52)).add(EVI2p2.multiply(29.04))\
+            .add(NDVI.multiply(4.73))\
+            .subtract(OSAVI.multiply(12.68)).subtract(OSAVIp2.multiply(28.13))\
+            .add(GNDVI.multiply(1.03)).add(GNDVIp2.multiply(2.97))\
+            .subtract(GSR.multiply(0.719))\
+            .subtract(MTVI2.multiply(0.31)).subtract(MTVI2p2.multiply(0.41))\
+            .add(SR.multiply(1.826)).subtract(1.1382301)
+
+            additional_model2_lai2 = \
+            (EVI2.multiply(66.55)).subtract(EVI2p2.multiply(8.07))\
+            .add(NDVI.multiply(44.51)).add(NDVIp2.multiply(13.99))\
+            .subtract(OSAVI.multiply(117.51)).subtract(OSAVIp2.multiply(7.91))\
+            .add(GNDVI.multiply(5.1)).subtract(GNDVIp2.multiply(12.33))\
+            .add(GSR.multiply(0.968))\
+            .add(MTVI2.multiply(8.01)).subtract(MTVI2p2.multiply(6.26))\
+            .subtract(SR.multiply(0.052)).add(0.028714)
+
+            additional_model2_lai2 = 66.55*EVI2 - 8.07*(EVI2p2) \
+                       + 44.51*NDVI - 117.51*OSAVI - 7.91*(OSAVIp2)\
+                       + 5.1*GNDVI - 12.33*(GNDVIp2) + 0.968*GSR\
+                       + 8.01*MTVI2 - 6.26*(MTVI2p2) \
+                       + 13.99*(NDVIp2) - 0.052*SR + 0.028714
+ 
+            additional_model2_lai = additional_model2_lai1.where(GSR.gt(2.41101), \
+                additional_model2_lai2)
+
+            # linear combination of default and additional models
+            lai = (lai.multiply(0.4)).add(additional_model1_lai.multiply(0.3))\
+                  .add(additional_model2_lai.multiply(0.3))
+
     else:
         # Compute vegetation indices used in this model
         # EVI, EVI2, MSR, NDVI, NDWI, NDWI2, OSAVI, SR
@@ -284,6 +358,55 @@ def lai_houborg2018(blue = None, green = None, red = None, nir = None, \
         # model:
         lai = np.where(MSR<=1.1384, lai1, lai2)
         lai = np.maximum(lai, 0)
+
+        if additional_models:
+            # Compute two additional models and output a linear combination 
+            # of the three models instead of the default model.
+            # Requires the green band
+
+            # Green normalized difference vegetation index (GNDVI):
+            GNDVI = (nir-green)/(nir+green)
+            # Green simple ratio (GSR):
+            GSR = nir/green
+            # Modified triangular vegetation index 2 (MTVI2):
+            MTVI2 = 1.5*(1.2*(nir-green)-2.5*(red-green))\
+                    /np.sqrt((2*nir+1)**2-(6*nir-5*np.sqrt(red))-0.5)
+            MTVI2 = np.minimum(MTVI2, 0.99)
+            # rules
+            additional_model1_lai1 = 3.92*EVI2+21.57*(EVI2**2)+5.35*MSR\
+                       + 4.22*NDVI + 9.93*(NDVI**2) - 6.15*NDWI - 8.6*(NDWI**2)\
+                       - 0.53*NDWI2 + 0.48*(NDWI2**2) - 7.01*OSAVI - 25.32*(OSAVI**2)\
+                       - 0.342*SR - 2.9213822
+
+            additional_model1_lai2 = 94.29*EVI2-31.69*(EVI2**2)+3.31*MSR\
+                       + 88.72*NDVI - 18.62*(NDVI**2) - 5.32*NDWI - 2.23*(NDWI**2)\
+                       - 20.64*NDWI2 + 17.36*(NDWI2**2) - 173.11*OSAVI + 33.64*(OSAVI**2)\
+                       - 0.003*SR + 3.5351541
+
+            additional_model1_lai = np.where(MSR<=1.1384,  \
+                                    additional_model1_lai1,\
+                                    additional_model1_lai2)
+            additional_model1_lai = np.maximum(additional_model1_lai, 0)
+
+
+            additional_model2_lai1 = 5.52*EVI2 + 29.04*(EVI2**2) \
+                       + 4.73*NDVI - 12.68*OSAVI - 28.13*(OSAVI**2)\
+                       + 1.03*GNDVI + 2.97*(GNDVI**2) - 0.719*GSR\
+                       - 0.31*MTVI2 - 0.41*(MTVI2**2) \
+                       + 1.826*SR - 1.1382301
+
+            additional_model2_lai2 = 66.55*EVI2 - 8.07*(EVI2**2) \
+                       + 44.51*NDVI - 117.51*OSAVI - 7.91*(OSAVI**2)\
+                       + 5.1*GNDVI - 12.33*(GNDVI**2) + 0.968*GSR\
+                       + 8.01*MTVI2 - 6.26*(MTVI2**2) \
+                       + 13.99*(NDVI**2) - 0.052*SR + 0.028714
+
+            additional_model2_lai = np.where(GSR<=2.41101,  \
+                                    additional_model2_lai1,\
+                                    additional_model2_lai2)
+            additional_model2_lai = np.maximum(additional_model2_lai, 0)
+            # linear combination of default and additional models
+            lai = 0.4*lai + 0.3*additional_model1_lai + 0.3*additional_model2_lai
     return lai
 
 
