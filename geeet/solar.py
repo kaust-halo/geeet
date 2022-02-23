@@ -121,7 +121,7 @@ def compute_solar_angles(doy = None, time = None, longitude = None, latitude = N
         - solar_angles (tuple or ee.Image): tuple containing numpy arrays with the following
                 components, or ee.Image containing the following bands:
             - zenith: (degrees)
-            - azimuth: (degrees) 
+            - azimuth: (degrees)  
     '''
     import numpy as np 
     from geeet.common import is_eenum
@@ -130,7 +130,7 @@ def compute_solar_angles(doy = None, time = None, longitude = None, latitude = N
     RTOD = 180.0/np.pi # constant to convert radians to degrees
 
     if is_eenum(doy):
-        from ee import Image
+        from ee import Image, Algorithms
         t_noon = compute_tnoon(doy)
     else:
         t_noon = compute_tnoon(doy, longitude)
@@ -151,7 +151,6 @@ def compute_solar_angles(doy = None, time = None, longitude = None, latitude = N
         AST = Image(time.add(12)).subtract(t_noon)
         hour_angle = AST.subtract(12).multiply(15).multiply(DTOR)
         cos_hour_angle = hour_angle.cos()
-        sin_hour_angle = hour_angle.sin()
 
         sin_solar = Image(solar_declination).sin() 
         cos_solar = Image(solar_declination).cos() 
@@ -167,10 +166,14 @@ def compute_solar_angles(doy = None, time = None, longitude = None, latitude = N
         cos_zenith = sin_term.add(cos_term)
         zenith = cos_zenith.acos().multiply(RTOD)
 
-        altitude_angle = Image(90).subtract(zenith).multiply(DTOR)
-        cos_altitude = altitude_angle.cos()
-        sin_azimuth = cos_solar.multiply(sin_hour_angle).divide(cos_altitude)
-        azimuth = sin_azimuth.asin().multiply(RTOD)
+        sin_zenith = zenith.multiply(DTOR).sin()
+        
+        cos_azimuth = sin_lat.multiply(cos_zenith).subtract(sin_solar)
+        cos_azimuth = cos_azimuth.divide(cos_lat.multiply(sin_zenith))
+        azimuth = cos_azimuth.acos().multiply(RTOD)
+
+        azimuth = Algorithms.If(hour_angle.lt(0), azimuth.add(180).mod(360), 
+        Image(540).subtract(azimuth).mod(360))
 
         solar_angles = zenith.addBands(azimuth).rename(['zenith', 'azimuth'])
 
@@ -179,15 +182,20 @@ def compute_solar_angles(doy = None, time = None, longitude = None, latitude = N
         AST = time + 12 - t_noon 
         # Hour angle is (AST-12)*15  (if AST is 12 the hour angle is 0deg)
         hour_angle = (AST-12)*15
+        # Solar zenith angle
         # cos(Zenith) = sin(Lat)sin(declination)  + cos(Lat)cos(declination)cos(hour angle)
         cos_zenith = np.sin(latitude*DTOR)*np.sin(solar_declination) + \
             np.cos(latitude*DTOR)*np.cos(solar_declination)*np.cos(hour_angle*DTOR)
         zenith = np.arccos(cos_zenith)*RTOD
-        # sin(azimuth) = cos(declination)*sin(hour angle) / cos(altitude angle)
-        # where altitude angle is complementary to zenith (90 - zenith)
-        altitude_angle = 90-zenith
-        sin_azimuth = np.cos(solar_declination)*np.sin(hour_angle*DTOR)/np.cos(altitude_angle*DTOR)
-        azimuth = np.arcsin(sin_azimuth)*RTOD
+        # Solar azimuth angle
+        # cos(Azimuth) = sin(lat)*cos(zenith) - sin(declination) / (cos(lat)*sin(zenith))
+        cos_azimuth = np.sin(latitude*DTOR)*cos_zenith - np.sin(solar_declination)
+        cos_azimuth = cos_azimuth / (np.cos(latitude*DTOR)*np.sin(zenith*DTOR))
+        azimuth = np.arccos(cos_azimuth)*RTOD
+        if hour_angle>0:
+            azimuth = (azimuth+180)%360
+        else:
+            azimuth = (540-azimuth)%360
         solar_angles = [zenith, azimuth]
 
     return solar_angles
