@@ -61,7 +61,6 @@ def l8c02_mask_scale_SR(img):
     Examples/Cloud Masking/Landsat8 Surface Reflectance
 
     It also returns the scaled optical and thermal bands 
-    (although the thermal bands will not be used)
 
     Input: img (ee.Image)
     """
