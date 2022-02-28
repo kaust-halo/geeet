@@ -457,7 +457,7 @@ def compute_fwet(RH, band_name=None):
         if band_name:
             Fwet = Fwet.rename(band_name)
     else:
-        Fwet = (RH/100.0) ** 4
+        Fwet = (RH/100) ** 4
     return Fwet
 
 
