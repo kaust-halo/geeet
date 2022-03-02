@@ -2,7 +2,6 @@
 fapar, fipar, vegetation cover, LAI, etc. and other biophysical parameters
 (green canopy fraction, plant temperature and moisture constraints, soil moisture constraint)
 """
-from audioop import add
 from geeet.common import is_eenum, is_img
 import numpy as np
 
@@ -120,9 +119,8 @@ def compute_lai(NDVI, k_par = 0.5, band_name = None):
         LAI = np.array(LAI)
     return LAI
 
-
 def lai_houborg2018(blue = None, green = None, red = None, nir = None, \
-    swir1 = None, swir2 = None, additional_models = False, band_name = None):
+    swir1 = None, swir2 = None, additional_models = False, band_name = 'LAI'):
     '''
     Hard-coded Cubist-based LAI model from a hybrid training approach
     described in Houborg and McCabe (2018), ISPRS J. Photogramm., 135, 173-188 

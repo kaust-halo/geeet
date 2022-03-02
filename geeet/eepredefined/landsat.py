@@ -76,11 +76,26 @@ def l8c02_mask_scale_SR(img):
 
 def l8c02_add_inputs(img):
     """
-    Adds the "albedo", "NDVI" and "radiometric_temperature" bands
+    Adds the "albedo", "NDVI", "LAI", and "radiometric_temperature" bands
     Albedo: shortwave albedo using the empirical coefficients of Liang (2001)
     LST: ST_B10 for "radiometric_temperature" 
+    LAI: Houborg and McCabe (2018) cubist hybrid trained model
     """
+    from geeet.vegetation import lai_houborg2018, compute_lai
     albedo = albedo_liang(img)
     ndvi = img.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
     lst = img.select('ST_B10').rename('radiometric_temperature')
-    return img.addBands(albedo).addBands(ndvi).addBands(lst)
+
+    # Lai - Houborg 2018 cubist trained model:
+    bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']
+    blue = img.select(bands[0])
+    red = img.select(bands[1])
+    nir = img.select(bands[2])
+    swir1 = img.select(bands[3])
+    swir2 = img.select(bands[4])
+    
+    #lai = compute_lai(ndvi)  # simple model
+    lai = lai_houborg2018(
+        blue = blue, red = red, nir = nir, swir1=swir1, swir2=swir2
+    ).rename('LAI')
+    return img.addBands(albedo).addBands(ndvi).addBands(lst).addBands(lai)

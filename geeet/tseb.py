@@ -88,8 +88,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
     Alternative inputs (TODO)
     These inputs could be supplied instead of computed - NOT YET IMPLEMENTED
     - Net radiation (W/m2): net_radiation (band) or Rn (numpy array) TODO  - could replace Sdn, Ldn, albedo
-    - Leaf Area Index (LAI; m2/m2): LAI (band) or LAI (numpy array)  TODO - include check if LAI is given 
-            (currently it is computed by default)
+    - Leaf Area Index (LAI; m2/m2): LAI (band) or LAI (numpy array)  
 
     Scalar inputs:
     - zU: Height of wind speed measurement (m) (or height of the "surface" level if data is from a climate model)
@@ -145,6 +144,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
 
     if is_img(img):
         from ee import Number
+        band_names = img.bandNames()
         # Required
         Tr = img.select('radiometric_temperature') # in K
         P = img.select('surface_pressure')   # in Pa
@@ -158,14 +158,15 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         doy = Number(img.get('doy'))
         Vza = Number(img.get('viewing_zenith')) # Viewing Zenith angle (0 for Landsat)
         # Optional
-        #LAI = img.select('LAI')  # TODO: check if band exists
         #CH = img.select('canopy_height') # TODO: check if band exists
         #Rn = img.select('net_radiation') # TODO: check if exists, then skip calculation of Rn from Sdn, Ldn
-        
+        LAI = ee.Algorithms.If(band_names.contains('LAI'), 
+        img.select('LAI'), 
+        compute_lai(NDVI, k_par, band_name = 'LAI'))
+        LAI = ee.Image(LAI)
+
     # The following functions are designed to work
     # for both numpy and ee.Image inputs:
-    LAI = compute_lai(NDVI, k_par) # TODO: check if LAI is given as an input and skip this compute_lai.
-                                   # TODO: add option to compute lai using Houborg et al. trained models (Cubist and RF)
     f_theta = compute_ftheta(LAI, theta=Vza) # Fraction of field of view of sensor occupied by canopy (e.g. ~0 for LAI=0; ~0.4 for LAI=1, ~1 for LAI>6 with theta=0)
     Rn = compute_Rn(Sdn, Ldn, Alb, Tr, f_theta) # Net radiation with the upwards thermal radiation based on surface temperature (proportional to Tr**4)
                                                   # TODO: check if Rn is provided and skip this compute_Rn.
@@ -413,6 +414,9 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         # Retrieve parameters from hybrid functions:
         _, _, rho, cp, _, Lambda, _, taylor = met_params    #[q, ea, rho, cp, s, Lambda, psicr, taylor]
         ra, rs, rx = resist
+
+        if LAI is None:
+            LAI = compute_lai(NDVI, k_par)
 
         # Canopy net radiation:
         Rnc = Rn - Rns
