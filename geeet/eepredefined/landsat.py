@@ -17,13 +17,7 @@ bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']):
 
     *for collection 02, level 2 (SR) product. 
 
-    TODO 
-    add visible and nir parameterizations as well
-    (needed for CABLE).
-    visible: 
-    0.443*blue + 0.317*green + 0.240*red
-    nir:
-    0.693*nir + 0.212*swir  + 0.116*swir2 - 0.003
+    see also albedo_liang_vis, albedo_liang_nir
 
     Reference
     ---
@@ -38,6 +32,33 @@ bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']):
     albedo = bblue.add(bred).add(bnir).add(bswir).add(bswir2).add(coefs[5])
     albedo = albedo.rename('albedo')
     return albedo
+
+def albedo_liang_vis(img,
+coefs = [0.443, 0.317, 0.240],
+bands = ['SR_B2', 'SR_B3', 'SR_B4']):
+    """
+    Liang (2001) albedo (visible) parameterization
+    see albedo_liang
+    """
+    bblue = img.select(bands[0]).multiply(coefs[0])
+    bgreen = img.select(bands[1]).multiply(coefs[1])
+    bred = img.select(bands[2]).multiply(coefs[2])
+    albedo = bblue.add(bgreen).add(bred)
+    return albedo.rename('albedo_vis')
+
+def albedo_liang_nir(img,
+coefs = [0.693, 0.212, 0.116, -0.003],
+bands = ['SR_B5', 'SR_B6', 'SR_B7']):
+    """
+    Liang (2001) albedo (nir) parameterization
+    see albedo_liang
+    """
+    bnir = img.select(bands[0]).multiply(coefs[0])
+    bswir = img.select(bands[1]).multiply(coefs[1])
+    bswir2 = img.select(bands[2]).multiply(coefs[2])
+    albedo = bnir.add(bswir).add(bswir2).add(coefs[3])
+    return albedo.rename('albedo_nir')
+
 
 def l8c02_cloud_mask(img):
     """
@@ -83,6 +104,8 @@ def l8c02_add_inputs(img):
     """
     from geeet.vegetation import lai_houborg2018, compute_lai
     albedo = albedo_liang(img)
+    albedo_vis = albedo_liang_vis(img)
+    albedo_nir = albedo_liang_nir(img)
     ndvi = img.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
     lst = img.select('ST_B10').rename('radiometric_temperature')
 
@@ -98,4 +121,5 @@ def l8c02_add_inputs(img):
     lai = lai_houborg2018(
         blue = blue, red = red, nir = nir, swir1=swir1, swir2=swir2
     ).rename('LAI')
-    return img.addBands(albedo).addBands(ndvi).addBands(lst).addBands(lai)
+    return img.addBands(albedo).addBands(albedo_vis).addBands(albedo_nir)\
+        .addBands(ndvi).addBands(lst).addBands(lai)

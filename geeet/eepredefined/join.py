@@ -10,7 +10,8 @@ def add_ECMWF_datetime(img):
     d = img.get('system:time_start')
     d_parsed = ee.Date(d).format("yyyyMMdd'T'HH")
     img = img.set({'system:datetime': d_parsed,
-    'LANDSAT_INDEX':img.get('system:index')})
+    'LANDSAT_INDEX':img.get('system:index'),
+    'LANDSAT_FOOTPRINT': img.get('system:footprint')})
     return img
 
 
