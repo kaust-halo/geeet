@@ -119,7 +119,7 @@ def compute_lai(NDVI, k_par = 0.5, band_name = None):
         LAI = np.array(LAI)
     return LAI
 
-def lai_houborg2018(blue = None, green = None, red = None, nir = None, \
+def lai_houborg2018(blue = None, green = None, red = None, nir = None, 
     swir1 = None, swir2 = None, additional_models = False, band_name = 'LAI'):
     '''
     Hard-coded Cubist-based LAI model from a hybrid training approach

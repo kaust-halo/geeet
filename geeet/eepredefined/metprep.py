@@ -4,20 +4,20 @@ functions for mapping to an Image Collection
 """
 class MeteoBands:
     ECMWF_ERA5_HOURLY_TSEB=(
-    [\
-    'surface_pressure', \
-    'temperature_2m', \
-    'u_component_of_wind_10m',\
-    'v_component_of_wind_10m',\
-    'surface_solar_radiation_downwards_hourly',\
+    [
+    'surface_pressure', 
+    'temperature_2m', 
+    'u_component_of_wind_10m',
+    'v_component_of_wind_10m',
+    'surface_solar_radiation_downwards_hourly',
     'surface_thermal_radiation_downwards_hourly'
     ],
-    [\
-    'surface_pressure',\
-    'air_temperature', \
-    'u_component_of_wind_10m',\
-    'v_component_of_wind_10m',\
-    'surface_solar_radiation_downwards_hourly',\
+    [
+    'surface_pressure',
+    'air_temperature', 
+    'u_component_of_wind_10m',
+    'v_component_of_wind_10m',
+    'surface_solar_radiation_downwards_hourly',
     'surface_thermal_radiation_downwards_hourly'
     ]
     )
