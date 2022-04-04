@@ -95,6 +95,27 @@ def l8c02_mask_scale_SR(img):
         .addBands(thermalBands, overwrite=True)
     return img
 
+
+
+def constrain_range(img):
+    """
+    Constrain range to 0-1 for
+    a single band image
+    """
+    img = img.min(1)
+    img = img.max(0)
+    return img
+
+def constrain_range_lai(img):
+    """
+    Constrain range to 0-7 for
+    a single band image
+    """
+    img = img.min(7)
+    img = img.max(0)
+    return img
+
+
 def l8c02_add_inputs(img):
     """
     Adds the "albedo", "NDVI", "LAI", and "radiometric_temperature" bands
@@ -104,8 +125,11 @@ def l8c02_add_inputs(img):
     """
     from geeet.vegetation import lai_houborg2018, compute_lai
     albedo = albedo_liang(img)
+    albedo = constrain_range(albedo)
     albedo_vis = albedo_liang_vis(img)
+    albedo_vis = constrain_range(albedo_vis)
     albedo_nir = albedo_liang_nir(img)
+    albedo_nir = constrain_range(albedo_nir)
     ndvi = img.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
     lst = img.select('ST_B10').rename('radiometric_temperature')
 
@@ -121,5 +145,6 @@ def l8c02_add_inputs(img):
     lai = lai_houborg2018(
         blue = blue, red = red, nir = nir, swir1=swir1, swir2=swir2
     ).rename('LAI')
+    lai = constrain_range_lai(lai)
     return img.addBands(albedo).addBands(albedo_vis).addBands(albedo_nir)\
         .addBands(ndvi).addBands(lst).addBands(lai)
