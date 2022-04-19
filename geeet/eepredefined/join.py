@@ -4,16 +4,11 @@ Optional module to define some useful ee functions to join specific collections.
 import ee
 
 # Add a datetime property to the landsat data in the same format as ECMWF
-# also preserve the original Landsat-8 image index
-# (which is lost on the joinByDateTime operation)
 def add_ECMWF_datetime(img):
     d = img.get('system:time_start')
     d_parsed = ee.Date(d).format("yyyyMMdd'T'HH")
-    img = img.set({'system:datetime': d_parsed,
-    'LANDSAT_INDEX':img.get('system:index'),
-    'LANDSAT_FOOTPRINT': img.get('system:footprint')})
+    img = img.set({'system:datetime': d_parsed})
     return img
-
 
 def landsat_ecmwf(Sat_collection, Meteo_collection):
     sat_data = Sat_collection.map(add_ECMWF_datetime)
