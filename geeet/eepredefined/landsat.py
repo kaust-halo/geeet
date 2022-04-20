@@ -118,70 +118,46 @@ def constrain_range_lai(img):
 def l8c02_add_inputs(img):
     """
     Adds the "albedo", "NDVI", "LAI", and "radiometric_temperature" bands
-    Useful for both Landsat 8 (Collection 02) and Landsat 9 (Collection 02) images
+    Originaly built for Landsat 8 (Collection 02) images, 
+    useful as is for Landsat 9 images
+    Updated to work with Landsat 7 images as well
+    (by simply renaming the bands on the fly)
 
     Albedo: shortwave albedo using the empirical coefficients of Liang (2001)
     LST: ST_B10 for "radiometric_temperature" 
     LAI: Houborg and McCabe (2018) cubist hybrid trained model
     """
+    import ee
     from geeet.vegetation import lai_houborg2018, compute_lai
-    albedo = albedo_liang(img)
+
+    # blue, green, red, nir, swir1, swir2, thermal:
+    bands_l8 = ee.List(['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10'])
+    bands_l7 = ee.List(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7', 'ST_B6'])
+
+    spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
+    bands = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),
+    bands_l7,
+    bands_l8)
+
+    img_renamed = img.select(bands, bands_l8) 
+    # ^^ force band names to l8 names
+
+    albedo = albedo_liang(img_renamed)
     albedo = constrain_range(albedo)
-    albedo_vis = albedo_liang_vis(img)
+    albedo_vis = albedo_liang_vis(img_renamed)
     albedo_vis = constrain_range(albedo_vis)
-    albedo_nir = albedo_liang_nir(img)
+    albedo_nir = albedo_liang_nir(img_renamed)
     albedo_nir = constrain_range(albedo_nir)
-    ndvi = img.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
-    lst = img.select('ST_B10').rename('radiometric_temperature')
+    ndvi = img_renamed.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
+    lst = img_renamed.select('ST_B10').rename('radiometric_temperature')
 
     # Lai - Houborg 2018 cubist trained model:
     bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']
-    blue = img.select(bands[0])
-    red = img.select(bands[1])
-    nir = img.select(bands[2])
-    swir1 = img.select(bands[3])
-    swir2 = img.select(bands[4])
-    
-    #lai = compute_lai(ndvi)  # simple model
-    lai = lai_houborg2018(
-        blue = blue, red = red, nir = nir, swir1=swir1, swir2=swir2
-    ).rename('LAI')
-    lai = constrain_range_lai(lai)
-    return img.addBands(albedo).addBands(albedo_vis).addBands(albedo_nir)\
-        .addBands(ndvi).addBands(lst).addBands(lai)
-
-def l7c02_add_inputs(img):
-    """
-    Adds the "albedo", "NDVI", "LAI", and "radiometric_temperature" bands
-    Useful for Landsat 7 (Collection 02) images
-     
-    Albedo: shortwave albedo using the empirical coefficients of Liang (2001)
-    LST: ST_B10 for "radiometric_temperature" 
-    LAI: Houborg and McCabe (2018) cubist hybrid trained model
-    """
-    from geeet.vegetation import lai_houborg2018, compute_lai
-    vnir_bands = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']
-    # blue, red, nir, swir, swir2
-
-    albedo = albedo_liang(img, 
-    bands = vnir_bands)
-    albedo = constrain_range(albedo)
-    albedo_vis = albedo_liang_vis(img,
-    bands = ['SR_B1','SR_B2','SR_B3'])
-
-    albedo_vis = constrain_range(albedo_vis)
-    albedo_nir = albedo_liang_nir(img,
-    bands = ['SR_B4','SR_B5','SR_B7'])
-    albedo_nir = constrain_range(albedo_nir)
-    ndvi = img.normalizedDifference(['SR_B4', 'SR_B3']).rename('NDVI')
-    lst = img.select('ST_B6').rename('radiometric_temperature')
-
-    # Lai - Houborg 2018 cubist trained model:
-    blue = img.select(vnir_bands[0])
-    red = img.select(vnir_bands[1])
-    nir = img.select(vnir_bands[2])
-    swir1 = img.select(vnir_bands[3])
-    swir2 = img.select(vnir_bands[4])
+    blue = img_renamed.select(bands[0])
+    red = img_renamed.select(bands[1])
+    nir = img_renamed.select(bands[2])
+    swir1 = img_renamed.select(bands[3])
+    swir2 = img_renamed.select(bands[4])
     
     #lai = compute_lai(ndvi)  # simple model
     lai = lai_houborg2018(
