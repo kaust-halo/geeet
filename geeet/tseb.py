@@ -164,6 +164,9 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         img.select('LAI'), 
         compute_lai(NDVI, k_par, band_name = 'LAI'))
         LAI = ee.Image(LAI)
+    else:
+        if LAI is None:
+            LAI = compute_lai(NDVI, k_par)
 
     # The following functions are designed to work
     # for both numpy and ee.Image inputs:
