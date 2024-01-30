@@ -272,6 +272,6 @@ def RN95(U, CH, rough_params, LAI, leaf_width, zU, zT, L=None, Ustar = None, rou
         # slope of the vapor pressure curve), but 
         # the text mentions small "s", which is leaf size
         # (here leaf_width) 
-        resistances = [np.array(RA), np.array(RS), np.array(RX)] 
+        resistances = (RA, RS, RX) 
 
     return resistances
