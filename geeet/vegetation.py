@@ -122,7 +122,9 @@ def compute_lai(NDVI, k_par = 0.5, band_name = None):
             LAI = LAI.rename(band_name)
     else:
         LAI = -np.log(1 - f_c)/k_par
-        LAI = np.array(LAI)
+        if hasattr(LAI, "rename"):
+            LAI = LAI.rename("LAI")
+
     return LAI
 
 def lai_houborg2018(blue = None, green = None, red = None, nir = None, 
