@@ -353,6 +353,8 @@ def compute_g(doy, time, Rns, longitude = None, G_params = [0.31, 74000, 10800])
         t_g0 = (time-t_noon)*3600.0
         cos_term = np.cos(2.0*np.pi*(t_g0+c)/b)
         G = a*cos_term*Rns
+        if hasattr(G, "rename"):
+            G = G.rename("G")
     return G
 
 
