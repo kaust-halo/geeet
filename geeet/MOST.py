@@ -398,9 +398,11 @@ def MOL(u_star, Ta_K, rho, cp, Lambda, H, LE):
     else:
         E = LE/(Lambda*1e6)
         Hv = H + (0.61*Ta_K*cp*E)
-        Hv = np.array(Hv)
-        Hv[Hv<=0] = 1e-10 # avoiding div/0
+        Hv = Hv.clip(1e-10) # avoid div/0
         L = -u_star**3 / (Hv*karman*gravity/Ta_K*rho*cp)
-        L = np.array(L)
-        L[np.isnan(L)]=1e10 # replace nans by a large value. 
+        if hasattr(L, "fillna"):
+            L = L.fillna(1e10)
+        else:
+            L = np.nan_to_num(L, nan=1e10)
+            # replace nans by a large value. 
     return L
