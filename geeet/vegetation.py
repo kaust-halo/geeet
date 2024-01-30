@@ -636,7 +636,7 @@ def compute_Rns(Rn, LAI, solar_angles=None, use_zenith = False, k=0.6, LAI_thre 
     If LAI_thre is provided, separate recommended values for sparse and dense vegetation is used
     based on Zhuang and Wu, 2015, i.e.:
     low LAI (LAI < LAI_thre): k=0.45
-    high LAI (LAI >= LAI_thre): k=0.18
+    high LAI (LAI >= LAI_thre): k=0.8
     Otherwise the k 
 
     for high LAI values and K=0.18 for low LAI values (Zhuang and Wu, 2015).
@@ -697,13 +697,19 @@ def compute_Rns(Rn, LAI, solar_angles=None, use_zenith = False, k=0.6, LAI_thre 
         if LAI_thre is not None:
             # If LAI threshold is specified, use the recommended values
             # from Zhuang and Wu, 2015 (k supplied is ignored):
-            k = np.ones_like(LAI)
-            k = np.where(LAI<LAI_thre, 0.8, 0.45)
+            if hasattr(LAI, "where"):
+                k = (LAI.where(LAI<LAI_thre, 0.45)
+                     .where(LAI>=LAI_thre,0.8))
+            else:
+                k = np.ones_like(LAI)
+                k = np.where(LAI<LAI_thre, 0.8, 0.45)
 
         exp_term = -k*LAI
         if use_zenith:
             zenith, _ = solar_angles
             exp_term = exp_term/(np.sqrt(2*np.cos(zenith*DTORAD)))
         Rns = Rn*np.exp(exp_term)
-        Rns = np.array(Rns)
+
+        if hasattr(Rns, "rename"):
+            Rns = Rns.rename("Rns")
     return Rns
