@@ -174,7 +174,7 @@ def compute_met_params(temperature, pressure):
         # Priestley-Taylor term DELTA/ (DELTA+GAMMA)
         taylor = s/(s+psicr) 
 
-        met_params = [np.array(q), np.array(ea), np.array(rho), np.array(cp), np.array(s), np.array(Lambda), np.array(psicr), np.array(taylor)]
+        return q,ea,rho,cp,s,Lambda, psicr,taylor
     return met_params
 
 def compute_roughness(CH, fm=0.125, fd=0.65, kb=2.0, min_values = [0.003, 0.003, 0.004], band_names = ['ZM', 'ZH', 'D0']):
