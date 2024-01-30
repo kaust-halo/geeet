@@ -49,9 +49,17 @@ def init_canopy(LAI, ch=0.3, min_LAI = 1.0, D_0_min = 0.004, fd=0.65):
             ch = ch.updateMask(laiMask)
             ch = ch.where(LAI.lte(min_LAI), D_0_min/fd)
     else:
-        if not isinstance(ch, np.ndarray):
-            ch = np.array(np.ones_like(LAI)*ch)
-            ch[LAI <= min_LAI] = D_0_min/fd
+        if not hasattr(ch, "size"):
+            if hasattr(LAI, "where"):
+                # https://docs.xarray.dev/en/stable/generated/xarray.DataArray.where.html
+                ch = (LAI.where(LAI>min_LAI, D_0_min/fd)
+                    .where(LAI<=min_LAI, ch)
+                )
+            else:
+                ch = np.where(LAI>min_LAI, ch, D_0_min/fd)
+        
+        if hasattr(ch, "canopy_height"):
+            ch = ch.rename("canopy_height")
 
     return ch
 
