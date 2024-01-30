@@ -365,7 +365,6 @@ def Ustar(U, zU, L=None, rough_params=None, rough_bands = ['ZM','ZH','D0'], band
         
         u_star = U*karman/((np.log((zU - d0)/roughU) - PsiM ))
         u_star = np.maximum(u_star, minValue)
-        u_star = np.array(u_star)
     return u_star
 
 
