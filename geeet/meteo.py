@@ -224,5 +224,15 @@ def compute_roughness(CH, fm=0.125, fd=0.65, kb=2.0, min_values = [0.003, 0.003,
         ZM = np.maximum(zM_min, fm*CH)
         ZH = np.maximum(zH_min, ZM/np.exp(kb))
         D0 = np.maximum(D0_min, fd*CH)
+
+        if hasattr(ZM, "rename"):
+            ZM = ZM.rename("ZM")
+
+        if hasattr(ZH, "rename"):
+            ZH = ZH.rename("ZH")
+
+        if hasattr(D0, "rename"):
+            D0 = D0.rename("D0")
+
         rough = [ZM, ZH, D0]
     return rough 
