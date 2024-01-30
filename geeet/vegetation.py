@@ -86,9 +86,15 @@ def compute_fipar(NDVI, band_name=None):
         if band_name:
             F_ipar = F_ipar.rename(band_name)
     else:
-        F_ipar = m2*NDVI + b2
-        F_ipar = np.array(F_ipar)
-        F_ipar[F_ipar < 0] = 0
+        if not hasattr(NDVI, "size"):
+            NDVI = np.array(NDVI)
+
+        F_ipar = (
+            m2*NDVI + b2  
+        ).clip(0,1)
+
+        if hasattr(F_ipar, "rename"):
+            F_ipar = F_ipar.rename("fipar")
 
     return F_ipar
 
