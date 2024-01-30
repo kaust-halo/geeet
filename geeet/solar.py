@@ -395,4 +395,6 @@ def compute_Rn(Sdn, Ldn, Albedo, Tr_K, fc, EmisVeg = 0.98, EmisGrd = 0.93):
     else:
         EmisSurf = (fc*EmisVeg + (1-fc)*EmisGrd)
         Rn = (1 - Albedo)*Sdn + Ldn - EmisSurf* sb * Tr_K ** 4
+        if hasattr(Rn, "rename"):
+            Rn = Rn.rename("Rn")
     return Rn
