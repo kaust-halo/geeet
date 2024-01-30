@@ -606,10 +606,16 @@ def compute_ftheta(LAI, theta = 0, band_name = 'f_theta'):
         f_theta = f_theta.where(f_theta.lt(0.05), 0.05)
         f_theta = f_theta.rename(band_name)
     else:
-        f_theta = 1 - np.exp(-0.5*LAI/np.cos(np.radians(theta))) 
-        f_theta = np.array(f_theta)
-        f_theta[f_theta > 0.9] = 0.9
-        f_theta[f_theta < 0.05] = 0.05
+        if not hasattr(LAI, "size"):
+            LAI = np.array(LAI)
+
+        f_theta = (
+            1 - np.exp(-0.5*LAI/np.cos(np.radians(theta))) 
+        ).clip(0.05,0.9)
+
+        if hasattr(f_theta, "rename"):
+            f_theta = f_theta.rename("f_theta")
+
     return f_theta
 
 def compute_Rns(Rn, LAI, solar_angles=None, use_zenith = False, k=0.6, LAI_thre = None):
