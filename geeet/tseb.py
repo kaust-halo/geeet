@@ -426,30 +426,33 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         _, _, rho, cp, _, Lambda, _, taylor = met_params    #[q, ea, rho, cp, s, Lambda, psicr, taylor]
         ra, rs, rx = resist
 
-        if LAI is None:
-            LAI = compute_lai(NDVI, k_par)
-
         # Canopy net radiation:
         Rnc = Rn - Rns
 
         # Initialize temperature partitioning (soil and canopy)
         # using the PT-equation:
         LEc = AlphaPT*F_g*taylor*Rnc # Canopy latent heat flux (N95 equation 12)
-        LEc = np.array(LEc)
 
-        LEc[LEc<0]=0.0
+        LEc = LEc.clip(0)
+
         Hc = Rnc - LEc # Canopy sensible heat flux (N95 equation 14)
         Tc = ra*Hc/(rho*cp) + Ta  # canopy T, in K (N95 equation 14)
         Ts = (Tr - f_theta*Tc)/(1-f_theta)# soil T, in K (N95 equation A.5, i.e. linearized equation 1)
-        Tc = np.array(Tc)
-        Ts = np.array(Ts)
-        Tr = np.array(Tr)
 
         # Constraints on Tc and Ts based on DisALEXI
-        Ts[f_theta >= 0.9] = Tr[f_theta >= 0.9]
-        Ts[f_theta <= 0.1] = Tr[f_theta <= 0.1]
-        Tc[f_theta >= 0.9] = Tr[f_theta >= 0.9]
-        Tc[f_theta <= 0.1] = Tr[f_theta <= 0.1]
+        if hasattr(Ts, "where"):
+            Ts = Ts.where(f_theta<0.9, Tr)  # keep values <0.9. otherwise put Tr
+            Ts = Ts.where(f_theta>0.1, Tr)  # keep values >0.1, otherwise put Tr
+        else:
+            Ts = np.where(f_theta<0.9, Ts, Tr)
+            Ts = np.where(f_theta>0.1, Ts, Tr)
+
+        if hasattr(Tc, "where"):
+            Tc = Tc.where(f_theta<0.9, Tr)  # keep current values where f_theta<0.9. otherwise put Tr
+            Tc = Tc.where(f_theta>0.1, Tr)  # keep current values where f_theta>0.1, otherwise put Tr
+        else:
+            Tc = np.where(f_theta<0.9, Tc, Tr)
+            Tc = np.where(f_theta>0.1, Tc, Tr)
 
         # Initial fluxes estimation using TSEB in parallel
         Hs = rho*cp*(Ts-Ta)/(ra+rs)
