@@ -160,10 +160,6 @@ def PsiH_unstable(z_g):
 
         psih = (y.pow(n).add(c)).divide(c).log().multiply(dn)
     else:
-        # Check z (only applicable for z<0)
-        if np.min(z_g)>=0:
-            print('This function only applies for unstable conditions (z_g <0)')
-            return
         # Ignore z>0 values:
         z_g = np.minimum(z_g,0)
         y = -z_g
@@ -199,18 +195,9 @@ def PsiM(z_g):
         Psim= PsimStable.unmask().add(PsimUnstable.unmask()) 
         Psim = Psim.updateMask(z_g.mask()) # finally, apply the original mask. 
     else:
-        #if np.max(z_g)<0:
-        #    Psim = PsiM_unstable(z_g)
-        #elif np.min(z_g)>=0:
-        #    Psim = PsiM_stable(z_g)
-        #else:
-
         stable = z_g>=0
         unstable = z_g<0
-        # Xarray lazy evaluation: 
-        # we don't know a priori which one is it
-        # so we evaluate both and then merge the one we need
-        # z_g could be np.array or xarray:
+
         if hasattr(z_g, "where"):
             stable_input = z_g.where(stable)  # otherwise nan
             unstable_input = z_g.where(unstable) # otherwise nan
@@ -258,16 +245,24 @@ def PsiH(z_g):
         Psih= PsihStable.unmask().add(PsihUnstable.unmask()) 
         Psih = Psih.updateMask(z_g.mask()) # finally, apply the original mask. 
     else:
-        if np.max(z_g)<0:
-            Psih = PsiH_unstable(z_g)
-        elif np.min(z_g)>=0:
-            Psih = PsiH_stable(z_g)
+        stable = z_g>=0
+        unstable = z_g<0
+
+        if hasattr(z_g, "where"):
+            stable_input = z_g.where(stable)  # otherwise nan
+            unstable_input = z_g.where(unstable) # otherwise nan
         else:
-            stable = z_g>=0
-            unstable = z_g<0
-            Psih = np.zeros_like(z_g)
-            Psih[stable] = PsiH_stable(z_g[stable])
-            Psih[unstable] = PsiH_unstable(z_g[unstable])
+            stable_input = np.where(stable, z_g, np.nan)
+            unstable_input = np.where(unstable, z_g, np.nan)
+
+        pstable = PsiH_stable(stable_input)
+        punstable = PsiH_stable(unstable_input)
+
+        if hasattr(z_g, "where"):
+            Psih = pstable.where(stable, punstable)
+        else:
+            Psih = np.where(stable, pstable, punstable)
+
 
     return Psih
 
