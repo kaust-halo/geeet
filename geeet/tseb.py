@@ -63,6 +63,34 @@ def init_canopy(LAI, ch=0.3, min_LAI = 1.0, D_0_min = 0.004, fd=0.65):
 
     return ch
 
+def to_ndarray(x):
+    """Coerce x to ndarray if needed
+
+    xarray: should return as is (has size attribute)
+    np.ndarray: should return as is (has size attribute)
+    list: should return np.array(x) (has __len__ attr.)
+    scalar (float or int): should return np.array([x])
+    """
+    if hasattr(x, "size"):
+        return x
+    else:
+        if hasattr(x,"__len__"):
+            return np.array(x)
+        else:
+            return np.array([x])
+
+def update_var(var, pixelsToUpdate, updated_var):
+    """Helper utility to update a variable
+    using either the .where method (xarray)
+    or numpy.where
+    """
+    if hasattr(var, "where"):
+        var = var.where(~pixelsToUpdate, updated_var)  
+    else:
+        var = np.where(pixelsToUpdate, updated_var, var)
+    
+    return var
+
 def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence over numpy arrays)
                 Tr=None, NDVI=None, LAI = None,  # numpy arrays
                 P = None, Ta = None, U = None, Sdn = None, Ldn = None, Rn = None,
@@ -173,8 +201,21 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         compute_lai(NDVI, k_par, band_name = 'LAI'))
         LAI = ee.Image(LAI)
     else:
+        # Coerce inputs to np.ndarray if needed
+        Tr = to_ndarray(Tr)
+        NDVI = to_ndarray(NDVI)
+        P = to_ndarray(P)
+        Ta = to_ndarray(Ta)
+        U = to_ndarray(U)
+        Sdn = to_ndarray(Sdn)
+        Ldn = to_ndarray(Ldn)
+        Rn = to_ndarray(Rn)
+        Alb = to_ndarray(Alb)
+
         if LAI is None:
             LAI = compute_lai(NDVI, k_par)
+        
+        LAI = to_ndarray(LAI)
 
     # The following functions are designed to work
     # for both numpy and ee.Image inputs:
@@ -440,84 +481,73 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         Ts = (Tr - f_theta*Tc)/(1-f_theta)# soil T, in K (N95 equation A.5, i.e. linearized equation 1)
 
         # Constraints on Tc and Ts based on DisALEXI
-        if hasattr(Ts, "where"):
-            Ts = Ts.where(f_theta<0.9, Tr)  # keep values <0.9. otherwise put Tr
-            Ts = Ts.where(f_theta>0.1, Tr)  # keep values >0.1, otherwise put Tr
-        else:
-            Ts = np.where(f_theta<0.9, Ts, Tr)
-            Ts = np.where(f_theta>0.1, Ts, Tr)
-
-        if hasattr(Tc, "where"):
-            Tc = Tc.where(f_theta<0.9, Tr)  # keep current values where f_theta<0.9. otherwise put Tr
-            Tc = Tc.where(f_theta>0.1, Tr)  # keep current values where f_theta>0.1, otherwise put Tr
-        else:
-            Tc = np.where(f_theta<0.9, Tc, Tr)
-            Tc = np.where(f_theta>0.1, Tc, Tr)
+        Ts = update_var(Ts, f_theta>=0.9, Tr)
+        Ts = update_var(Ts, f_theta<=0.1, Tr)
+        Tc = update_var(Tc, f_theta>=0.9, Tr)
+        Tc = update_var(Tc, f_theta<=0.1, Tr)
 
         # Initial fluxes estimation using TSEB in parallel
         Hs = rho*cp*(Ts-Ta)/(ra+rs)
         LEs = Rns - G - Hs
-        LEs = np.array(LEs)
+
 
         Tac = Tc.copy()  # initialize Tac for the in-series network
         LE = LEc + LEs 
         H = Hc + Hs
 
-        LEs = np.array(LEs)
-        LEc = np.array(LEc)
-        LE = np.array(LE)
-        Hs = np.array(Hs)
-        Hc = np.array(Hc)
-        H = np.array(H)
         # Iterative procedure:
         # in each iteration, we only update pixels
         # where LEs was previously negative. 
-        it = np.zeros_like(LE)
+        if hasattr(LE, "where"):
+            it = LE.where(False, 0)
+        else:
+            it = np.zeros_like(LE)
+
         for iteration in range(max_iterations):
             pixelsToUpdate = LEs<0 # in previous iteration, or from initialization
-            it[pixelsToUpdate] = iteration+1
-            if np.all(pixelsToUpdate == False):
-                break
+            it = update_var(it, pixelsToUpdate, iteration+1)
 
             #### Update stage:
             ### Update temperatures (Tc, Ts, Tac) using N95 equations (1, A.5-A.13)
             # Linear approximation of Tc (N95 A7):
             # Note that Hc = Rnc - LEc   where LEc = Rnc[alphaPT*Fg*taylor], so 
             # Hc = Rnc * (1 - alphaPT * Fg * taylor)
-            Tclin = (Ta/ra + Tr/(rs*(1-f_theta)) + (1/ra+1/rs+1/rx)*Hc*rx/(rho*cp))\
+            Tclin = ((Ta/ra + Tr/(rs*(1-f_theta)) + (1/ra+1/rs+1/rx)*Hc*rx/(rho*cp))
                     /(1/ra+1/rs+f_theta/(rs*(1-f_theta)))
+            )
 
             # N95 equation A.12 (TD):
             Td = Tclin*(1+rs/ra) - (1+rs/rx+rs/ra)*Hc*rx/(rho*cp) - Ta*rs/ra
             # N95 equation A.11 (deltaTc), i.e. correction to the linear approximation of Tc:
-            dTc = ((Tr**4) - f_theta*Tclin**4 - (1-f_theta)*Td**4)\
+            dTc = (((Tr**4) - f_theta*Tclin**4 - (1-f_theta)*Td**4)
                 / (4*(1-f_theta)*(Td**3)*(1+rs/ra)+4*f_theta*Tc**3)
+            )
             # N95 equation A.13 (Tc = Tclin + delta Tc)
             Tcu  = Tclin + dTc
             # N95 equation 1, solving for (1-f(theta))*Ts^n  = Tr^n - f(theta)*Tc^n
             # the RHS of this equation is:
             TsRHS = Tr**4 - f_theta*Tcu**4 
             # Force TsRHS to be a positive value to avoid complex numbers:
-            TsRHS = np.maximum(TsRHS, 1e-6)
+            TsRHS = TsRHS.clip(1e-6)   
             # Estimate Ts (N95 equation 1)
             Tsu = (TsRHS/(1-f_theta))**0.25
             Tsu = np.maximum(Tsu, 1e-6) # Force a minimum value for Ts 
 
             # Estimate Tac (N95 equation A.4):
-            Tacu = (Ta/ra + Tsu/rs + Tcu/rx)\
+            Tacu = ((Ta/ra + Tsu/rs + Tcu/rx)
                 /  (1/ra + 1/rs + 1/rx)
+            )
 
             # Constraints on Tc and Ts based on DisALEXI
-            Tsu = np.array(Tsu)
-            Tcu = np.array(Tcu)
-            Tsu[f_theta>0.9] = Tr[f_theta>0.9]
-            Tsu[f_theta<0.1] = Tr[f_theta<0.1]
-            Tcu[f_theta>0.9] = Tr[f_theta>0.9]
-            Tcu[f_theta<0.1] = Tr[f_theta<0.1]
-           
-            Tc[pixelsToUpdate] = Tcu[pixelsToUpdate]
-            Ts[pixelsToUpdate] = Tsu[pixelsToUpdate]
-            Tac[pixelsToUpdate] = Tacu[pixelsToUpdate]
+            Tsu = update_var(Tsu, f_theta>0.9, Tr)
+            Tsu = update_var(Tsu, f_theta<0.1, Tr)
+            Tcu = update_var(Tcu, f_theta>0.9, Tr)
+            Tcu = update_var(Tcu, f_theta<0.1, Tr)
+
+            # Update Tc from Tcu in pixelsToUpdate
+            Tc = update_var(Tc, pixelsToUpdate, Tcu)
+            Ts = update_var(Ts, pixelsToUpdate, Tsu)
+            Tac = update_var(Ts, pixelsToUpdate, Tacu)
 
             ### Update sensible and latent heat fluxes, now using the 
             # in-series network:
@@ -530,14 +560,20 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             ### Update M-O length (L) and friction velocity
             L = MOL(ustar, Ta, rho, cp, Lambda, Hu, LEu) 
             ustaru = compute_ustar(U, zU, L, rough)
-            ustar[pixelsToUpdate] = ustaru[pixelsToUpdate]
+
+            if hasattr(ustar, "where"):
+                ustar = ustar.where(~pixelsToUpdate, ustaru)  
+            else:
+                ustar = np.where(pixelsToUpdate, ustaru, ustar)
 
             ### Update resistances
             resistu = RN95(U, CH, rough, LAI, Leaf_width, zU, zT, Ustar=ustar, L=L)
+
             rau, rsu, rxu = resistu
-            ra[pixelsToUpdate] = rau[pixelsToUpdate]
-            rs[pixelsToUpdate] = rsu[pixelsToUpdate]
-            rx[pixelsToUpdate] = rxu[pixelsToUpdate]
+            ra = update_var(ra, pixelsToUpdate, rau)
+            rs = update_var(rs, pixelsToUpdate, rsu)
+            rx = update_var(rx, pixelsToUpdate, rxu)
+
             ### Update the alpha PT constant:
             AlphaPT-=0.01
             AlphaPT = np.maximum(AlphaPT, 0) 
@@ -545,26 +581,45 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             # Finally, recompute LEc using the PT equation (N95 equation 12)
             # for any pixel that still has LEs<0:
             LEcu2 = taylor*Rnc*AlphaPT*F_g          
+
             nLEs = LEsu<0  # negative LEs
-            LEcu = np.array(LEcu)
-            LEcu2 = np.array(LEcu2)
-            LEcu[nLEs] = LEcu2[nLEs]
+            LEcu = update_var(LEcu, nLEs, LEcu2)
             # and Hc = Rnc-LEc
             Hcu2 = Rnc-LEcu
-            Hcu = np.array(Hcu)
-            Hcu2 = np.array(Hcu2)
-            Hcu[nLEs] = Hcu2[nLEs]
+            Hcu = update_var(Hcu, nLEs, Hcu2)
 
             # Update fluxes (H, L): 
-            LEs[pixelsToUpdate] = LEsu[pixelsToUpdate]
-            LEc[pixelsToUpdate] = LEcu[pixelsToUpdate]
-            LE[pixelsToUpdate] = LEu[pixelsToUpdate]
-            Hs[pixelsToUpdate] = Hsu[pixelsToUpdate]
-            Hc[pixelsToUpdate] = Hcu[pixelsToUpdate]
-            H[pixelsToUpdate] = Hu[pixelsToUpdate]
+            LEs = update_var(LEs, pixelsToUpdate, LEsu)
+            LEc = update_var(LEc, pixelsToUpdate, LEcu)
+            LE = update_var(LE, pixelsToUpdate, LE)
+            Hs = update_var(Hs, pixelsToUpdate, Hsu)
+            Hc = update_var(Hc, pixelsToUpdate, Hcu)
+            H = update_var(H, pixelsToUpdate, Hu)
 
         et_tseb_out = LE, LEs, LEc, Hs, Hc, G, Rn, Rns, Rnc, Ts, Tc, Tac, ra, rs, rx, it
         et_tseb_out_keys = ['LE', 'LEs', 'LEc', 'Hs', 'Hc', 'G', 'Rn', 'Rns', 'Rnc', 'Ts', 'Tc', 'Tac', 'Ra', 'Rs', 'Rx', 'iteration']
+        if hasattr(LE, "rename"):
+            # Assuming all outputs are xarrays
+            import xarray
+            return xarray.merge([
+                LE.rename("LE"),
+                LEs.rename("LEs"),
+                LEc.rename("LEc"),
+                Hs.rename("Hs"),
+                Hc.rename("Hc"),
+                G.rename("G"),
+                Rn.rename("Rn"),
+                Rns.rename("Rns"),
+                Rnc.rename("Rnc"),
+                Ts.rename("Ts"),
+                Tc.rename("Tc"),
+                Tac.rename("Tac"),
+                ra.rename("ra"),
+                rs.rename("rs"),
+                rx.rename("rx"),
+                it.rename("it")
+            ])
+        
         et_tseb_out = dict(zip(et_tseb_out_keys, et_tseb_out))
         return et_tseb_out
 
