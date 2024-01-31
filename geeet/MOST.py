@@ -34,12 +34,8 @@ def PsiM_stable(z_g):
         log_term = (((z_g.pow(b)).add(1)).pow(1/b)).add(z_g)
         psim = (log_term.log()).multiply(-a)
     else:
-        if np.max(z_g)<0:
-            print('This function only applies for stable conditions (z_g>=0)')
-            return
         # ignore z<0 values:
         z_g = np.maximum(z_g,0)
-        
         psim = -a*np.log(z_g + (1+z_g**b)**(1/b))
         
     return psim
@@ -119,10 +115,6 @@ def PsiM_unstable(z_g):
         psim = psim1.add(psim2).add(psim3).add(psim4).add(Psi_0)
        
     else:
-        # Check z (only applicable for z<0)
-        if np.min(z_g)>=0:
-            print('This function only applies for unstable conditions (z_g <0)')
-            return
         # Ignore z>0 values:
         z_g = np.minimum(z_g,0)
         y = -z_g
@@ -207,16 +199,32 @@ def PsiM(z_g):
         Psim= PsimStable.unmask().add(PsimUnstable.unmask()) 
         Psim = Psim.updateMask(z_g.mask()) # finally, apply the original mask. 
     else:
-        if np.max(z_g)<0:
-            Psim = PsiM_unstable(z_g)
-        elif np.min(z_g)>=0:
-            Psim = PsiM_stable(z_g)
+        #if np.max(z_g)<0:
+        #    Psim = PsiM_unstable(z_g)
+        #elif np.min(z_g)>=0:
+        #    Psim = PsiM_stable(z_g)
+        #else:
+
+        stable = z_g>=0
+        unstable = z_g<0
+        # Xarray lazy evaluation: 
+        # we don't know a priori which one is it
+        # so we evaluate both and then merge the one we need
+        # z_g could be np.array or xarray:
+        if hasattr(z_g, "where"):
+            stable_input = z_g.where(stable)  # otherwise nan
+            unstable_input = z_g.where(unstable) # otherwise nan
         else:
-            stable = z_g>=0
-            unstable = z_g<0
-            Psim = np.zeros_like(z_g)
-            Psim[stable] = PsiM_stable(z_g[stable])
-            Psim[unstable] = PsiM_unstable(z_g[unstable])
+            stable_input = np.where(stable, z_g, np.nan)
+            unstable_input = np.where(unstable, z_g, np.nan)
+
+        pstable = PsiM_stable(stable_input)
+        punstable = PsiM_stable(unstable_input)
+
+        if hasattr(z_g, "where"):
+            Psim = pstable.where(stable, punstable)
+        else:
+            Psim = np.where(stable, pstable, punstable)
 
     return Psim
 
@@ -351,15 +359,18 @@ def Ustar(U, zU, L=None, rough_params=None, rough_bands = ['ZM','ZH','D0'], band
         # If not provided, default to a large value (neutral conditions)
         # To avoid div/0, a minimum value is enforced. 
         if L is None:
-            L = 1e10 
-        L = np.maximum(L, 1e-36) 
+            L = np.array(1e10) 
+        if not hasattr(L, "clip"):
+            L = np.array([L])
+
+        L = L.clip(1e-36)
 
         # Diabatic correction factors (PsiM and PsiH) for RA
         # (also called integration stability correction terms)
         # based on Brutsaert, 2005 
         # see geeet.MOS.psiM and geeet.MOS.psiH
         z_g = (zU-d0)/L
-        PsiM = compute_psim(z_g)
+        PsiM = compute_psim(z_g)  # << this is the problem!
         PsiMr = compute_psim(roughU/L)
         PsiM = PsiM - PsiMr
         
