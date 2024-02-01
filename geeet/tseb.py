@@ -21,7 +21,7 @@ geeet.tseb.cite_all() - all references used for this module
 """
 
 import numpy as np
-from geeet.common import is_img
+from geeet.common import is_img, is_xr
 try: 
     import ee
 except Exception:
@@ -110,7 +110,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
     All inputs are given as keyword parameters. 
 
     Inputs:
-    Either a single ee.Image (img) with the following inputs as bands (unless otherwise specified) 
+    Either a single ee.Image or xarray.Dataset (img) with the following inputs as bands (xr variables) (unless otherwise specified) 
     or inputs as numpy arrays (unless otherwise specified):
 
     - Radiometric temperature (Kelvin) e.g. Land surface temperature:   radiometric_temperature (band) or Tr (numpy array)
@@ -182,14 +182,14 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         from ee import Number
         band_names = img.bandNames()
         # Required
-        Tr = img.select('radiometric_temperature') # in K
-        P = img.select('surface_pressure')   # in Pa
-        Ta = img.select('air_temperature')   # in K
-        U = img.select('wind_speed')         # in m/s
         Alb = img.select('albedo')  
+        NDVI = img.select('NDVI')
+        Tr = img.select('radiometric_temperature') # in K
+        Ta = img.select('air_temperature')   # in K
+        P = img.select('surface_pressure')   # in Pa
+        U = img.select('wind_speed')         # in m/s
         Sdn = img.select('solar_radiation')  # in W/m2
         Ldn = img.select('thermal_radiation') # in W/m2
-        NDVI = img.select('NDVI')
         time = Number(img.get('time'))
         doy = Number(img.get('doy'))
         Vza = Number(img.get('viewing_zenith')) # Viewing Zenith angle (0 for Landsat)
@@ -201,24 +201,36 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         compute_lai(NDVI, k_par, band_name = 'LAI'))
         LAI = ee.Image(LAI)
     else:
-        # Coerce inputs to np.ndarray if needed
-        Tr = to_ndarray(Tr)
-        NDVI = to_ndarray(NDVI)
-        P = to_ndarray(P)
-        Ta = to_ndarray(Ta)
-        U = to_ndarray(U)
-        Sdn = to_ndarray(Sdn)
-        Ldn = to_ndarray(Ldn)
-        Rn = to_ndarray(Rn)
-        Alb = to_ndarray(Alb)
+        if is_xr(img):
+            Alb = img['albedo']  
+            NDVI = img['NDVI']
+            Tr = img['radiometric_temperature'] # in K
+            Ta = img['air_temperature']   # in K
+            P = img['surface_pressure']   # in Pa
+            U = img['wind_speed']         # in m/s
+            Sdn = img['solar_radiation']  # in W/m2
+            Ldn = img['thermal_radiation'] # in W/m2
+            if "LAI" in img:
+                LAI = img['LAI']
+        else:
+            # Coerce inputs to np.ndarray if needed
+            Tr = to_ndarray(Tr)
+            NDVI = to_ndarray(NDVI)
+            P = to_ndarray(P)
+            Ta = to_ndarray(Ta)
+            U = to_ndarray(U)
+            Sdn = to_ndarray(Sdn)
+            Ldn = to_ndarray(Ldn)
+            Rn = to_ndarray(Rn)
+            Alb = to_ndarray(Alb)
 
         if LAI is None:
             LAI = compute_lai(NDVI, k_par)
         
-        LAI = to_ndarray(LAI)
+        LAI = to_ndarray(LAI) # Coerce to np.ndarray if needed
 
     # The following functions are designed to work
-    # for both numpy and ee.Image inputs:
+    # for numpy.ndarrays, ee.Image, or xarray.DataArray inputs:
     f_theta = compute_ftheta(LAI, theta=Vza) # Fraction of field of view of sensor occupied by canopy (e.g. ~0 for LAI=0; ~0.4 for LAI=1, ~1 for LAI>6 with theta=0)
     Rn = compute_Rn(Sdn, Ldn, Alb, Tr, f_theta) # Net radiation with the upwards thermal radiation based on surface temperature (proportional to Tr**4)
                                                   # TODO: check if Rn is provided and skip this compute_Rn.
@@ -596,30 +608,28 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             Hc = update_var(Hc, pixelsToUpdate, Hcu)
             H = update_var(H, pixelsToUpdate, Hu)
 
+        if is_xr(img):
+            return img.assign(
+                LE=LE,
+                LEs=LEs,
+                LEc=LEc,
+                Hs=Hs,
+                Hc=Hc,
+                G=G,
+                Rn=Rn,
+                Rns=Rns,
+                Rnc=Rnc,
+                Ts=Ts,
+                Tc=Tc,
+                Tac=Tac,
+                ra=ra,
+                rs=rs,
+                rx=rx,
+                it=it
+            )
+        # numpy output as dictionary of ndarrays:
         et_tseb_out = LE, LEs, LEc, Hs, Hc, G, Rn, Rns, Rnc, Ts, Tc, Tac, ra, rs, rx, it
-        et_tseb_out_keys = ['LE', 'LEs', 'LEc', 'Hs', 'Hc', 'G', 'Rn', 'Rns', 'Rnc', 'Ts', 'Tc', 'Tac', 'Ra', 'Rs', 'Rx', 'iteration']
-        if hasattr(LE, "rename"):
-            # Assuming all outputs are xarrays
-            import xarray
-            return xarray.merge([
-                LE.rename("LE"),
-                LEs.rename("LEs"),
-                LEc.rename("LEc"),
-                Hs.rename("Hs"),
-                Hc.rename("Hc"),
-                G.rename("G"),
-                Rn.rename("Rn"),
-                Rns.rename("Rns"),
-                Rnc.rename("Rnc"),
-                Ts.rename("Ts"),
-                Tc.rename("Tc"),
-                Tac.rename("Tac"),
-                ra.rename("ra"),
-                rs.rename("rs"),
-                rx.rename("rx"),
-                it.rename("it")
-            ])
-        
+        et_tseb_out_keys = ['LE', 'LEs', 'LEc', 'Hs', 'Hc', 'G', 'Rn', 'Rns', 'Rnc', 'Ts', 'Tc', 'Tac', 'Ra', 'Rs', 'Rx', 'iteration']       
         et_tseb_out = dict(zip(et_tseb_out_keys, et_tseb_out))
         return et_tseb_out
 
