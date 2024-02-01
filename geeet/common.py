@@ -2,6 +2,16 @@
 
 import sys, os, shutil
 
+def is_xr(obj):
+    '''
+    Function to check if an object is an instance of xarray.Dataset
+    '''
+    if 'xarray' in sys.modules:
+        return isinstance(obj, sys.modules['xarray'].Dataset)
+    else:
+        return False
+
+
 def is_img(obj):
     '''
     Function to check if an object is an instance of ee.Image
