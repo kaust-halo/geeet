@@ -1,18 +1,19 @@
 # geeet
 
-
 [![image](https://img.shields.io/pypi/v/geeet.svg)](https://pypi.python.org/pypi/geeet)
 [![image](https://img.shields.io/conda/vn/conda-forge/geeet.svg)](https://anaconda.org/conda-forge/geeet)
 [![image](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Evapotranspiration (ET) models for use in python and with integration into Google Earth Engine.**
 
-*geeet* provides hybrid evapotranspiration (ET) models that run with numerical values and with Google Earth Engine images. 
+*geeet* provides hybrid evapotranspiration (ET) models that work with numerical values and with Google Earth Engine images.
 
 - GitHub repo: https://github.com/kaust-halo/geeet
 - PyPI: https://pypi.org/project/geeet/
 - Conda-forge: https://anaconda.org/conda-forge/geeet
 - Free software: MIT license
+
+Inputs to geeet models can be given as [numpy arrays](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html), an [xarray.Dataset](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html), or a [ee.Image](https://developers.google.com/earth-engine/apidocs/ee-image).
 
 ## Introduction
 
@@ -49,18 +50,16 @@ from geeet.tseb import import tseb_series
 et_tseb = tseb_series(img = sample_tseb_inputs) 
 ```
 
-where `sample_tseb_inputs` is a `ee.Image` containing all the necessary inputs for the TSEB model. You can use the same function to run the same model with numpy arrays:
+where `sample_tseb_inputs` is either a `ee.Image` or `xarray.Dataset` containing all the necessary inputs for the TSEB model.
+
+Alternatively, you can also supply numpy array or xarray.DataArray inputs as keyword arguments:
 
 ```python
-et_tseb_out = tseb_series(\
-    Tr = Tr, Alb = albedo, NDVI = NDVI, P = P, Ta = Ta, U = U, \
-    Sdn = Sdn, Ldn = Ldn, doy = doy, time = Time, Vza = Vza,\
+et_tseb_out = tseb_series(
+    Tr = Tr, Alb = albedo, NDVI = NDVI, P = P, Ta = Ta, U = U, 
+    Sdn = Sdn, Ldn = Ldn, doy = doy, time = Time, Vza = Vza,
     longitude = lon, latitude = lat, zU = zU, zT = zT)
 ```
-
-where in this case you supply all the inputs as numpy arrays through keyword arguments.
-
-> The keyword argument `img` is reserved only for GEE images. If `img` is supplied and is an instance of `ee.Image`, all other keyword arguments are ignored (with exceptions for some scalar parameters. Check the docstrings for each model). 
 
 *geeet* models can also be mapped to an [`ee.ImageCollection`](https://developers.google.com/earth-engine/guides/ic_creating), e.g.:
 
@@ -68,11 +67,13 @@ where in this case you supply all the inputs as numpy arrays through keyword arg
 from geeet.ptjpl import ptjpl_arid
 et_outputs = et_inputs.map(ptjpl_arid)
 ```
+
 where `et_inputs` is an `ee.ImageCollection` with the required inputs.
 
 ## PT-JPL model for arid environments (as described in [Aragon et al., 2018](http://dx.doi.org/10.3390/rs10121867))
 
 For a simple on-premises test of this PT-JPL model, run:
+
 ```python
 from geeet.ptjpl import ptjpl_arid
 ptjpl_arid(Ta=25+273, P = 95500, NDVI = 0.75, F_aparmax=0.73, Rn=487.87, RH=25, doy=1, time=11, longitude=38.25)
