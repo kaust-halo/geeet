@@ -120,11 +120,11 @@ def PsiM_unstable(z_g):
         y = -z_g
         y = np.minimum(y, b**-3)  # max y is ~14.56 (i.e. z lowest value is ~-14.56 --> PsiM max is ~1.8)
         x = (y/a)**(1/3)
-        psim = np.log(a+y)\
-               - 3*b*(y**(1/3))\
-               + (b/2)*(a**(1/3))*np.log((1+x)**2 / (1-x+x**2))\
-               + (3**(1/2))*b*(a**(1/3))*np.arctan((2*x-1)/(3**(1/2)))\
-               + Psi_0
+        psim = (np.log(a+y)
+               - 3*b*(y**(1/3))
+               + (b/2)*(a**(1/3))*np.log((1+x)**2 / (1-x+x**2))
+               + (3**(1/2))*b*(a**(1/3))*np.arctan((2*x-1)/(3**(1/2)))
+               + Psi_0)
     return psim
 
 

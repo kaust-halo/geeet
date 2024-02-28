@@ -17,25 +17,27 @@ Inputs to geeet models can be given as [numpy arrays](https://numpy.org/doc/stab
 
 ## Introduction
 
-*geeet* is a Python package providing a common set of building blocks for estimating evapotranspiration (ET) from remote sensing observations. It also features complete ET models such as [PT-JPL](https://doi.org/10.1016/j.rse.2007.06.025) and [TSEB](https://doi.org/10.1016/0168-1923(95)02265-Y). All modules in *geeet* are designed to work with the input data provided in two formats: (1) as [numpy ndarrays](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html) and (2) as [Google Earth Engine](https://earthengine.google.com/) (GEE) [images](https://developers.google.com/earth-engine/apidocs/ee-image). GEE is a cloud-based platform dedicated to Earth observation research that offers a [multi-petabyte catalogue](https://developers.google.com/earth-engine/datasets/) of geospatial data. Importantly, GEE offers cloud computing capabilities, which means that a user can interact with this geospatial data directly without having to download or process any data on premises. Access to these cloud-based services requires [signing up for a GEE account](https://earthengine.google.com/signup/). The *geeet* Python package was created to offer ET modeling tools that work for any user, whether they have a GEE account or not. For this reason, numpy is the only requirement for *geeet*. 
+*geeet* is a Python package providing a common set of building blocks for estimating evapotranspiration (ET) from remote sensing observations. It also features complete ET models such as [PT-JPL](https://doi.org/10.1016/j.rse.2007.06.025) and [TSEB](https://doi.org/10.1016/0168-1923(95)02265-Y). All modules in *geeet* are designed to work with the input data provided in two formats: (1) as [numpy ndarrays](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html) and (2) as [Google Earth Engine](https://earthengine.google.com/) (GEE) [images](https://developers.google.com/earth-engine/apidocs/ee-image). GEE is a cloud-based platform dedicated to Earth observation research that offers a [multi-petabyte catalogue](https://developers.google.com/earth-engine/datasets/) of geospatial data. Importantly, GEE offers cloud computing capabilities, which means that a user can interact with this geospatial data directly without having to download or process any data on premises. Access to these cloud-based services requires [signing up for a GEE account](https://earthengine.google.com/signup/). The *geeet* Python package was created to offer ET modeling tools that work for any user, whether they have a GEE account or not. For this reason, numpy is the only requirement for *geeet*.
+
+> Integration of geeet with xarray and especially lazy evaluation using dask is currently under development, with the goal of estimating ET using cloud-based assets (e.g., Cloud Optimized Geotiffs through a Spatio Temporal Asset Catalog (STAC)). 
 
 ## Installation
 
 *geeet* is available on the [Python Package Index (pip)](https://pypi.org/project/geeet/). To install *geeet* using pip, run this command:
 
-```
+```bash
 pip install geeet
 ```
 
 If you want to install the latest development version hosted on github, run this command:
 
-```
+```bash
 pip install git+https://github.com/kaust-halo/geeet
 ```
 
 *geeet* is alsao available on [conda-forge](https://anaconda.org/conda-forge/geeet). To install *geeet* using conda, run this command:
 
-```
+```bash
 conda install -c conda-forge geeet
 ```
 

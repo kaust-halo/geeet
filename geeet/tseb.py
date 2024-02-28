@@ -301,10 +301,10 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         H = Hc.add(Hs)
 
         # Prepare an initial image containing all the variables that need to be updated iteratively:
-        initialImg = Tc.addBands(Ts).addBands(Tac).addBands(Hc).addBands(Hs).addBands(LEc).addBands(LEs)\
-        .addBands(ra).addBands(rs).addBands(rx).addBands(ustar).addBands(Image(AlphaPT)).addBands(Image(0))
-        initialImg = initialImg.rename('Tc','Ts','Tac','Hc','Hs','LEc','LEs','Ra','Rs','Rx',\
-            'Ustar','alphaPT','iteration')
+        initialImg = (ee.Image([Tc, Ts, Tac, Hc, Hs, LEc, LEs,
+                ra, rs, rx, ustar, Image(AlphaPT), Image(0)])
+        .rename(['Tc','Ts','Tac','Hc','Hs','LEc','LEs',
+                'Ra','Rs','Rx', 'Ustar', 'alphaPT', 'iteration']))            
         iterStart = ee.List([initialImg]) # Initial list only contains the initialImg 
         
         # Prepare a dummy image collection for the iterative procedure:
@@ -442,13 +442,11 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             # containing all the updated values. However, note that we will
             # not necessarilly use the updated values everywhere - 
             # only where LEs<0 in the previous iteration.  
-            updatedImg = Tcu.addBands(Tsu).addBands(Tacu)\
-                .addBands(Hcu).addBands(Hsu).addBands(LEcu).addBands(LEsu)\
-                .addBands(rau).addBands(rsu).addBands(rxu)\
-                .addBands(ustaru).addBands(AlphaPTu).addBands(iterationu)
-            updatedImg = updatedImg.rename('Tc','Ts','Tac','Hc','Hs',\
-                'LEc','LEs','Ra','Rs','Rx','Ustar','alphaPT','iteration')
-        
+            updatedImg = (ee.Image([Tcu, Tsu, Tacu, Hcu, Hsu, LEcu, LEsu,
+                rau, rsu, rxu, ustaru, AlphaPTu, iterationu])
+            .rename(['Tc','Ts','Tac','Hc','Hs','LEc','LEs',
+                'Ra','Rs','Rx', 'Ustar', 'alphaPT', 'iteration']))            
+
             # Finally, we select the values we will keep
             # (we only update pixels where LEs was previously negative)
             # These values will be the "old" Img in the next iteration
@@ -470,9 +468,12 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         resultImage = resultImage.addBands(LE).addBands(H)
 
         # Also return other fluxes:
-        resultImage = resultImage.addBands(G.rename('G')).addBands(Rn.rename('Rn'))\
-            .addBands(Rns.rename('Rns')).addBands(Rnc.rename('Rnc'))
-
+        resultImage = resultImage.addBands(ee.Image([
+            G.rename('G'),
+            Rn.rename('Rn'),
+            Rns.rename('Rns'),
+            Rnc.rename('Rnc')
+        ])) 
         return img.addBands(resultImage)
     else:
         # Retrieve parameters from hybrid functions:

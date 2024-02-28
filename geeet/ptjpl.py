@@ -23,11 +23,7 @@ geeet.ptjpl.cite() - main reference for this module
 geeet.ptjpl.cite_all() - all references used for this module
 """
 
-import sys
-import numpy as np
 from geeet.common import is_img
-from geeet.meteo import compute_met_params, relative_humidity
-from geeet.vegetation import compute_ftheta
 try: 
     import ee
 except Exception:
@@ -117,11 +113,11 @@ def ptjpl_arid(img=None, # ee.Image with inputs as bands (takes precedence over 
         -     Rn: the net radiation.
     '''
     import numpy as np
-    from geeet.vegetation import compute_Rns, compute_lai, compute_fwet, \
-        compute_fg, compute_ft_arid, compute_fapar, compute_fm, \
-        compute_fsm
+    from geeet.vegetation import (compute_Rns, compute_lai, compute_fwet, 
+        compute_fg, compute_ft_arid, compute_fapar, compute_fm, 
+        compute_fsm, compute_ftheta)
     from geeet.solar import compute_g, compute_Rn
-    from geeet.meteo import relative_humidity
+    from geeet.meteo import relative_humidity, compute_met_params
 
     if is_img(img):
         band_names = img.bandNames()
