@@ -330,6 +330,27 @@ def constrain_range_lai(img):
     img = img.max(0)
     return img
 
+def update_cloud_mask(img: ee.Image) -> ee.Image:
+    """
+    Quality bit-based cloud/cloud-shadow mask for
+    a Landsat Collection 02 ee.Image (either TOA or SR)
+    Input: img (ee.Image)
+
+    See also: cloud_mask (adds cloud_cover band)
+    """
+    warnings.warn(
+                    "update_cloud_mask is deprecated. "
+                    "Use `landsat.cloud_mask` and `landsat.cfmask` instead.",
+                    FutureWarning
+                )
+    # mask if QA_PIXEL has any of the 0,1,2,3,4 bits on
+    # which correspond to: Fill, Dilated Cloud, Cirurs, Cloud, Cloud shadow
+    # i.e. we want to keep pixels where the bitwiseAnd with 11111 is 0:
+    qa_mask = img.select('QA_PIXEL').bitwiseAnd(int('11111',2)).eq(0)
+    # Mask any over-saturated pixel as well: 
+    saturation_mask = img.select('QA_RADSAT').eq(0)
+    return img.updateMask(qa_mask).updateMask(saturation_mask)
+
 
 def l8c02_add_inputs(img):
     """
