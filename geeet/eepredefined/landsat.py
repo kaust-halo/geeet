@@ -83,6 +83,31 @@ def add_ndvi(img:ee.Image)->ee.Image:
     return img.addBands(ndvi.clamp(-1,1))
 
 
+def albedo_tasumi(img:ee.Image):
+    """
+    Tasumi et al (2008) albedo parameterization 
+
+    Reference
+    ---
+    [Tasumi et al. (2008)](https://doi.org/10.1061/(ASCE)1084-0699(2008)13:2(51))
+    [Ke et al. (2016)](https://doi.org/10.3390/rs8030215)
+
+    """
+    oli = '0.130*b("SR_B1") + 0.115*b("SR_B2") + 0.143*b("SR_B3") + 0.180*b("SR_B4") + 0.281*b("SR_B5") + 0.108*b("SR_B6") + 0.042*b("SR_B7")'
+    etm = '0.254*b("SR_B1") + 0.149*b("SR_B2") + 0.147*b("SR_B3") + 0.311*b("SR_B4") + 0.103*b("SR_B5")                    + 0.036*b("SR_B7")'
+    spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
+    expr = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),etm, oli)
+    albedo = img.expression(expr).rename('albedo')
+    return albedo
+
+
+def add_albedo_tasumi(img:ee.Image)->ee.Image:
+    """Adds albedo based on Tasumi et al. 2008 to a Landsat 7, 8, or 9 image.
+    """
+    alb = albedo_tasumi(img)
+    return img.addBands(alb.clamp(0,1))
+
+
 def albedo_liang(img:ee.Image, 
 coefs=[0.356, 0.130, 0.373, 0.085, 0.072, -0.0018],
 bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'])->ee.Image:
@@ -114,7 +139,7 @@ bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'])->ee.Image:
     albedo = albedo.rename('albedo')
     return albedo
 
-def add_albedo(img:ee.Image)->ee.Image:
+def add_albedo_liang(img:ee.Image)->ee.Image:
     """Adds shortwave albedo (Liang, 2000) to a Landsat 7*, 8, or 9 image. 
     *Bands are renamed in place to match Landsat 8/9, but not returned. 
     bands: blue, red, nir, swir, swir2
@@ -126,7 +151,7 @@ def add_albedo(img:ee.Image)->ee.Image:
     alb = albedo_liang(img.select(sel_bands, band_names)).rename("albedo")
     return img.addBands(alb.clamp(0,1))
 
-def add_trad(img:ee.Image)->ee.Image:
+def add_rad_temp(img:ee.Image)->ee.Image:
     """Adds the "radiometric_temperature" band to a Landsat 7*, 8, or 9 image. 
     *Bands are renamed in place to match Landsat 8/9, but not returned. 
     bands: surface temperature
@@ -193,8 +218,9 @@ def collection(
     exclude_pr:bool = None,
     include_pr:bool = None,
     ndvi = True,
-    albedo = True, 
-    trad = True,
+    albedo:Union[None, Literal["liang2001", "tasumi2008"]] = "liang2001", 
+    rad_temp = True,
+    cfmask = True, 
     lai:Union[None,Literal["log-linear", "houborg2018"]]=None,
 )-> ee.ImageCollection:
     """Prepares a merged landsat collection
@@ -213,10 +239,16 @@ def collection(
         Indicates which satellites to include in the image collection.
         exclude_pr: A list of path/rows to exclude given as a list. E.g.: [[170,40]] will exclude PATH/ROW 170040
         pr_list:
-        include_pr: A list of path/rows to include given as a list. Any path/row not included here will be excluded. 
-        ndvi: Include NDVI as an additional band, using the NIR and Red bands. Defaults to True
-        albedo: Include albedo as an additional band, using the parameterization of Liang (2001). Defaults to True.
-        trad: Include radiometric_temperature (e.g., required for TSEB) as an additional band. Defaults to True. 
+        include_pr: A list of path/rows to include given as a list. Any path/row not included here will be excluded.
+        ndvi: Include NDVI as an additional band, using the NIR and Red bands. Defaults to True. 
+        albedo: None, "liang2001", or "tasumi2008":
+
+            * None: do not include albedo
+            * "liang2001": Include albedo as an additional band based on Liang et al. 2001
+            * "tasumi2008": Include albedo as an additional band based on Tasumi et al. 2008
+            
+        rad_temp: Include radiometric_temperature (e.g., required for TSEB) as an additional band. Defaults to True. 
+        cfmask: Include cloud_cover as an additional band. Defaults to True. 
         lai: None, "log-linear", or "houborg2018":
         
             * None: do not include LAI
@@ -267,11 +299,17 @@ def collection(
     if(ndvi):
         collection = collection.map(add_ndvi)
 
-    if(albedo):
-        collection = collection.map(add_albedo)
+    if albedo is not None:
+        if albedo=="liang2001":
+            collection = collection.map(add_albedo_liang)
+        if albedo=="tasumi2008":
+            collection = collection.map(add_albedo_tasumi)
 
-    if(trad):
-        collection = collection.map(add_trad)
+    if(rad_temp):
+        collection = collection.map(add_rad_temp)
+
+    if(cfmask):
+        collection = collection.map(cloud_mask)
 
     if lai is not None:
         if lai=="log-linear":
