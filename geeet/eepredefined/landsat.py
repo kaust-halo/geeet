@@ -2,7 +2,7 @@
 Optional module to define some useful ee functions related to Landsat images processing. 
 """
 import ee, datetime, warnings
-from typing import Union, Any, Dict, List, Literal
+from typing import Union, Any, Dict, List, Literal, Callable
 
 def scale_SR(img:ee.Image)->ee.Image:
     """Scales the optical and thermal bands (SR_B.* and ST_B.*)
@@ -33,21 +33,20 @@ def cloud_mask(img: ee.Image, name:str ="cloud_cover") -> ee.Image:
     return img.addBands(cloud_mask)
 
 
-def update_cloud_mask(img: ee.Image) -> ee.Image:
-    """
-    Quality bit-based cloud/cloud-shadow mask for
-    a Landsat Collection 02 ee.Image (either TOA or SR)
-    Input: img (ee.Image)
+def cfmask(bandNames:list)->Callable:
+    def apply_mask(img:ee.Image)->ee.Image:
+        """Returns img with the cloud mask used to 
+        update the mask on selected bands (bandNames)
+        Requires bands: cloud_cover
+        """
+        cloud_mask = ee.Image(1).subtract(img.select("cloud_cover"))
+        imgBands = (img.select(bandNames)
+        .updateMask(cloud_mask)
+        )
+        return img.addBands(imgBands, overwrite=True)
 
-    See also: cloud_mask (adds cloud_cover band)
-    """
-    # mask if QA_PIXEL has any of the 0,1,2,3,4 bits on
-    # which correspond to: Fill, Dilated Cloud, Cirurs, Cloud, Cloud shadow
-    # i.e. we want to keep pixels where the bitwiseAnd with 11111 is 0:
-    qa_mask = img.select('QA_PIXEL').bitwiseAnd(int('11111',2)).eq(0)
-    # Mask any over-saturated pixel as well: 
-    saturation_mask = img.select('QA_RADSAT').eq(0)
-    return img.updateMask(qa_mask).updateMask(saturation_mask)
+    return apply_mask
+
 
 def set_index(img: ee.Image) -> ee.Image:
     return img.set({'LANDSAT_INDEX':img.get('system:index'),
