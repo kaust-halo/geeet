@@ -2,7 +2,7 @@
 Optional module to define some useful ee functions related to Landsat images processing. 
 """
 import ee, datetime, warnings
-from typing import Union, Any, Dict, List, Literal
+from typing import Union, Any, Dict, List, Literal, Callable
 
 def scale_SR(img:ee.Image)->ee.Image:
     """Scales the optical and thermal bands (SR_B.* and ST_B.*)
@@ -33,21 +33,20 @@ def cloud_mask(img: ee.Image, name:str ="cloud_cover") -> ee.Image:
     return img.addBands(cloud_mask)
 
 
-def update_cloud_mask(img: ee.Image) -> ee.Image:
-    """
-    Quality bit-based cloud/cloud-shadow mask for
-    a Landsat Collection 02 ee.Image (either TOA or SR)
-    Input: img (ee.Image)
+def cfmask(bandNames:list)->Callable:
+    def apply_mask(img:ee.Image)->ee.Image:
+        """Returns img with the cloud mask used to 
+        update the mask on selected bands (bandNames)
+        Requires bands: cloud_cover
+        """
+        cloud_mask = ee.Image(1).subtract(img.select("cloud_cover"))
+        imgBands = (img.select(bandNames)
+        .updateMask(cloud_mask)
+        )
+        return img.addBands(imgBands, overwrite=True)
 
-    See also: cloud_mask (adds cloud_cover band)
-    """
-    # mask if QA_PIXEL has any of the 0,1,2,3,4 bits on
-    # which correspond to: Fill, Dilated Cloud, Cirurs, Cloud, Cloud shadow
-    # i.e. we want to keep pixels where the bitwiseAnd with 11111 is 0:
-    qa_mask = img.select('QA_PIXEL').bitwiseAnd(int('11111',2)).eq(0)
-    # Mask any over-saturated pixel as well: 
-    saturation_mask = img.select('QA_RADSAT').eq(0)
-    return img.updateMask(qa_mask).updateMask(saturation_mask)
+    return apply_mask
+
 
 def set_index(img: ee.Image) -> ee.Image:
     return img.set({'LANDSAT_INDEX':img.get('system:index'),
@@ -84,6 +83,31 @@ def add_ndvi(img:ee.Image)->ee.Image:
     return img.addBands(ndvi.clamp(-1,1))
 
 
+def albedo_tasumi(img:ee.Image):
+    """
+    Tasumi et al (2008) albedo parameterization 
+
+    Reference
+    ---
+    [Tasumi et al. (2008)](https://doi.org/10.1061/(ASCE)1084-0699(2008)13:2(51))
+    [Ke et al. (2016)](https://doi.org/10.3390/rs8030215)
+
+    """
+    oli = '0.130*b("SR_B1") + 0.115*b("SR_B2") + 0.143*b("SR_B3") + 0.180*b("SR_B4") + 0.281*b("SR_B5") + 0.108*b("SR_B6") + 0.042*b("SR_B7")'
+    etm = '0.254*b("SR_B1") + 0.149*b("SR_B2") + 0.147*b("SR_B3") + 0.311*b("SR_B4") + 0.103*b("SR_B5")                    + 0.036*b("SR_B7")'
+    spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
+    expr = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),etm, oli)
+    albedo = img.expression(expr).rename('albedo')
+    return albedo
+
+
+def add_albedo_tasumi(img:ee.Image)->ee.Image:
+    """Adds albedo based on Tasumi et al. 2008 to a Landsat 7, 8, or 9 image.
+    """
+    alb = albedo_tasumi(img)
+    return img.addBands(alb.clamp(0,1))
+
+
 def albedo_liang(img:ee.Image, 
 coefs=[0.356, 0.130, 0.373, 0.085, 0.072, -0.0018],
 bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'])->ee.Image:
@@ -115,7 +139,7 @@ bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'])->ee.Image:
     albedo = albedo.rename('albedo')
     return albedo
 
-def add_albedo(img:ee.Image)->ee.Image:
+def add_albedo_liang(img:ee.Image)->ee.Image:
     """Adds shortwave albedo (Liang, 2000) to a Landsat 7*, 8, or 9 image. 
     *Bands are renamed in place to match Landsat 8/9, but not returned. 
     bands: blue, red, nir, swir, swir2
@@ -127,7 +151,7 @@ def add_albedo(img:ee.Image)->ee.Image:
     alb = albedo_liang(img.select(sel_bands, band_names)).rename("albedo")
     return img.addBands(alb.clamp(0,1))
 
-def add_trad(img:ee.Image)->ee.Image:
+def add_rad_temp(img:ee.Image)->ee.Image:
     """Adds the "radiometric_temperature" band to a Landsat 7*, 8, or 9 image. 
     *Bands are renamed in place to match Landsat 8/9, but not returned. 
     bands: surface temperature
@@ -194,8 +218,9 @@ def collection(
     exclude_pr:bool = None,
     include_pr:bool = None,
     ndvi = True,
-    albedo = True, 
-    trad = True,
+    albedo:Union[None, Literal["liang2001", "tasumi2008"]] = "liang2001", 
+    rad_temp = True,
+    cfmask = True, 
     lai:Union[None,Literal["log-linear", "houborg2018"]]=None,
 )-> ee.ImageCollection:
     """Prepares a merged landsat collection
@@ -213,11 +238,16 @@ def collection(
         sat_list: A list, subset of ["LANDSAT_7", "LANDSAT_8", "LANDSAT_9"] but not empty.
         Indicates which satellites to include in the image collection.
         exclude_pr: A list of path/rows to exclude given as a list. E.g.: [[170,40]] will exclude PATH/ROW 170040
-        pr_list:
-        include_pr: A list of path/rows to include given as a list. Any path/row not included here will be excluded. 
-        ndvi: Include NDVI as an additional band, using the NIR and Red bands. Defaults to True
-        albedo: Include albedo as an additional band, using the parameterization of Liang (2001). Defaults to True.
-        trad: Include radiometric_temperature (e.g., required for TSEB) as an additional band. Defaults to True. 
+        include_pr: A list of path/rows to include given as a list. Any path/row not included here will be excluded.
+        ndvi: Include NDVI as an additional band, using the NIR and Red bands. Defaults to True. 
+        albedo: None, "liang2001", or "tasumi2008":
+
+            * None: do not include albedo
+            * "liang2001": Include albedo as an additional band based on Liang et al. 2001
+            * "tasumi2008": Include albedo as an additional band based on Tasumi et al. 2008
+            
+        rad_temp: Include radiometric_temperature (e.g., required for TSEB) as an additional band. Defaults to True. 
+        cfmask: Include cloud_cover as an additional band. Defaults to True. 
         lai: None, "log-linear", or "houborg2018":
         
             * None: do not include LAI
@@ -268,11 +298,17 @@ def collection(
     if(ndvi):
         collection = collection.map(add_ndvi)
 
-    if(albedo):
-        collection = collection.map(add_albedo)
+    if albedo is not None:
+        if albedo=="liang2001":
+            collection = collection.map(add_albedo_liang)
+        if albedo=="tasumi2008":
+            collection = collection.map(add_albedo_tasumi)
 
-    if(trad):
-        collection = collection.map(add_trad)
+    if(rad_temp):
+        collection = collection.map(add_rad_temp)
+
+    if(cfmask):
+        collection = collection.map(cloud_mask)
 
     if lai is not None:
         if lai=="log-linear":
@@ -285,6 +321,34 @@ def collection(
 
     return collection
 
+
+def geesebal_compatibility(img:ee.Image)->ee.Image:
+    """
+    Mappable function to ensure compatibility with geeSEBAL (expects Landsat C01).
+    """
+    # geeSEBAL expects B, GR, R, NIR, SWIR_1, SWIR_2 bands 
+    # with the C01 scale (1/10000) 
+    band_names = ["B", "GR", "R", "NIR", "SWIR_1", "SWIR_2"]
+    oli_names = ["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"]
+    etm_names = ["SR_B1", "SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B7"]
+    spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
+    sel_bands = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),etm_names, oli_names)
+    normalized = img.select(sel_bands).rename(band_names).multiply(10000)  
+
+    return (img
+        # geeSEBAL expects the T_RAD band in W/(m^2*sr*um)/DN
+        .addBands(img.select("ST_TRAD").multiply(0.001).rename("T_RAD")) 
+        .addBands(img.select("albedo").rename("ALFA"))   # geesebal expects ALFA
+        # geeSEBAL expects BRT with the C01 scale (1/10)
+        .addBands(img.select("radiometric_temperature").multiply(10).rename("BRT"))  # geesebal expects BRT (ST_B6 | ST_B10)
+        .addBands(normalized) # SR_* bands
+        # geeSEBAL expects SOLAR_ZENITH_ANGLE (C01) -- not available in C02 (SUN_ELEVATION instead)
+        # and SATELLITE (renamed to SPACECRAFT_ID in C02)
+        .set({
+            "SOLAR_ZENITH_ANGLE": ee.Number(90).subtract(img.get("SUN_ELEVATION")),
+            "SATELLITE": img.get("SPACECRAFT_ID"),
+        })
+    )
 
 def albedo_liang_vis(img,
 coefs = [0.443, 0.317, 0.240],
@@ -330,6 +394,27 @@ def constrain_range_lai(img):
     img = img.min(7)
     img = img.max(0)
     return img
+
+def update_cloud_mask(img: ee.Image) -> ee.Image:
+    """
+    Quality bit-based cloud/cloud-shadow mask for
+    a Landsat Collection 02 ee.Image (either TOA or SR)
+    Input: img (ee.Image)
+
+    See also: cloud_mask (adds cloud_cover band)
+    """
+    warnings.warn(
+                    "update_cloud_mask is deprecated. "
+                    "Use `landsat.cloud_mask` and `landsat.cfmask` instead.",
+                    FutureWarning
+                )
+    # mask if QA_PIXEL has any of the 0,1,2,3,4 bits on
+    # which correspond to: Fill, Dilated Cloud, Cirurs, Cloud, Cloud shadow
+    # i.e. we want to keep pixels where the bitwiseAnd with 11111 is 0:
+    qa_mask = img.select('QA_PIXEL').bitwiseAnd(int('11111',2)).eq(0)
+    # Mask any over-saturated pixel as well: 
+    saturation_mask = img.select('QA_RADSAT').eq(0)
+    return img.updateMask(qa_mask).updateMask(saturation_mask)
 
 
 def l8c02_add_inputs(img):
