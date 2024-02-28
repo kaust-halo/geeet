@@ -238,7 +238,6 @@ def collection(
         sat_list: A list, subset of ["LANDSAT_7", "LANDSAT_8", "LANDSAT_9"] but not empty.
         Indicates which satellites to include in the image collection.
         exclude_pr: A list of path/rows to exclude given as a list. E.g.: [[170,40]] will exclude PATH/ROW 170040
-        pr_list:
         include_pr: A list of path/rows to include given as a list. Any path/row not included here will be excluded.
         ndvi: Include NDVI as an additional band, using the NIR and Red bands. Defaults to True. 
         albedo: None, "liang2001", or "tasumi2008":
@@ -322,6 +321,34 @@ def collection(
 
     return collection
 
+
+def geesebal_compatibility(img:ee.Image)->ee.Image:
+    """
+    Mappable function to ensure compatibility with geeSEBAL (expects Landsat C01).
+    """
+    # geeSEBAL expects B, GR, R, NIR, SWIR_1, SWIR_2 bands 
+    # with the C01 scale (1/10000) 
+    band_names = ["B", "GR", "R", "NIR", "SWIR_1", "SWIR_2"]
+    oli_names = ["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"]
+    etm_names = ["SR_B1", "SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B7"]
+    spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
+    sel_bands = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),etm_names, oli_names)
+    normalized = img.select(sel_bands).rename(band_names).multiply(10000)  
+
+    return (img
+        # geeSEBAL expects the T_RAD band in W/(m^2*sr*um)/DN
+        .addBands(img.select("ST_TRAD").multiply(0.001).rename("T_RAD")) 
+        .addBands(img.select("albedo").rename("ALFA"))   # geesebal expects ALFA
+        # geeSEBAL expects BRT with the C01 scale (1/10)
+        .addBands(img.select("radiometric_temperature").multiply(10).rename("BRT"))  # geesebal expects BRT (ST_B6 | ST_B10)
+        .addBands(normalized) # SR_* bands
+        # geeSEBAL expects SOLAR_ZENITH_ANGLE (C01) -- not available in C02 (SUN_ELEVATION instead)
+        # and SATELLITE (renamed to SPACECRAFT_ID in C02)
+        .set({
+            "SOLAR_ZENITH_ANGLE": ee.Number(90).subtract(img.get("SUN_ELEVATION")),
+            "SATELLITE": img.get("SPACECRAFT_ID"),
+        })
+    )
 
 def albedo_liang_vis(img,
 coefs = [0.443, 0.317, 0.240],
