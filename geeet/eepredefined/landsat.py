@@ -53,21 +53,6 @@ def set_index(img: ee.Image) -> ee.Image:
         'LANDSAT_FOOTPRINT': img.get('system:footprint')})
 
 
-def filter_collection(collection: ee.ImageCollection, 
-    date_start: Union[datetime.datetime, ee.Date, int, str, Any],
-    date_end: Union[datetime.datetime, ee.Date, int, str, Any],
-    region: Union[Dict[str, Any], ee.Geometry]) -> ee.ImageCollection:
-    """
-    Filters a ee.ImageCollection by dates and geometry,
-    and preserves the LANDSAT_INDEX property. 
-    """
-    return (collection
-        .filterBounds(region)
-        .filterDate(date_start, date_end)
-        .map(set_index)
-    )
-
-
 def add_ndvi(img:ee.Image)->ee.Image:
     """Adds NDVI to a Landsat 7*, 8, or 9 image. 
     *Bands are renamed in place to match Landsat 8/9, but not returned. 
@@ -225,11 +210,13 @@ def collection(
 )-> ee.ImageCollection:
     """Prepares a merged landsat collection
 
-    Includs LE07, LC08, and LC09 collection 02 level 2 products.
+    Includes LE07, LC08, and LC09 collection 02 level 2 products.
 
     - Filters the collections to the specified date range and region. 
-    - Scaling factors are applied
-    - Optionally includes additional albedo, NDVI, radiometric_temperature, and LAI bands. 
+    - Scaling factors are applied to optical (SR_*) and thermal (ST_*) bands. 
+    - Optionally includes additional albedo, NDVI, radiometric_temperature, cloud_cover*, and LAI bands. 
+
+    Does not apply cloud mask; use `cfmask` to create a mappable function.
 
     Args: 
         date_start: The start date to retrieve the data (see ee.Date)
@@ -260,15 +247,29 @@ def collection(
     Returns: ee.ImageCollection
     """
     import ee
+    from .parsers import feature_collection
 
-    L7_collection = filter_collection(
-        ee.ImageCollection('LANDSAT/LE07/C02/T1_L2'), date_start, date_end, region)
+    region = feature_collection(region)
 
-    L8_collection = filter_collection(
-        ee.ImageCollection('LANDSAT/LC08/C02/T1_L2'), date_start, date_end, region)
-
-    L9_collection = filter_collection(
-        ee.ImageCollection('LANDSAT/LC09/C02/T1_L2'), date_start, date_end, region)
+    filter_collection = ee.Filter.And(
+        ee.Filter.bounds(region),
+        ee.Filter.date(date_start, date_end)
+    )
+    L7_collection = (
+        ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
+        .filter(filter_collection)
+        .map(set_index)
+    )
+    L8_collection = (
+        ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+        .filter(filter_collection)
+        .map(set_index)
+    )
+    L9_collection = (
+        ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+        .filter(filter_collection)
+        .map(set_index)
+    )
 
     collection = (L7_collection.merge(L8_collection)
     .merge(L9_collection)
