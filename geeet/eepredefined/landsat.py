@@ -323,6 +323,20 @@ def collection(
     return collection
 
 
+def mapped_collection(workflow:List[Callable], *args, **kwargs):
+    """Map a custom algorithm defined by `workflow` onto a landsat collection.
+
+    Args: 
+    - workflow: A list of mappable functions
+    - args: positional arguments for `landsat.collection`
+    - kwargs: keyword arguments for `landsat.collection`
+    """
+    coll = collection(*args, **kwargs)
+    for f in workflow:
+        coll = coll.map(f)
+    return coll
+
+
 def geesebal_compatibility(img:ee.Image)->ee.Image:
     """
     Mappable function to ensure compatibility with geeSEBAL (expects Landsat C01).
@@ -376,102 +390,3 @@ bands = ['SR_B5', 'SR_B6', 'SR_B7']):
     bswir2 = img.select(bands[2]).multiply(coefs[2])
     albedo = bnir.add(bswir).add(bswir2).add(coefs[3])
     return albedo.rename('albedo_nir')
-
-# DEPRECATED:
-def constrain_range(img):
-    """
-    Constrain range to 0-1 for
-    a single band image
-    """
-    img = img.min(1)
-    img = img.max(0)
-    return img
-
-def constrain_range_lai(img):
-    """
-    Constrain range to 0-7 for
-    a single band image
-    """
-    img = img.min(7)
-    img = img.max(0)
-    return img
-
-def update_cloud_mask(img: ee.Image) -> ee.Image:
-    """
-    Quality bit-based cloud/cloud-shadow mask for
-    a Landsat Collection 02 ee.Image (either TOA or SR)
-    Input: img (ee.Image)
-
-    See also: cloud_mask (adds cloud_cover band)
-    """
-    warnings.warn(
-                    "update_cloud_mask is deprecated. "
-                    "Use `landsat.cloud_mask` and `landsat.cfmask` instead.",
-                    FutureWarning
-                )
-    # mask if QA_PIXEL has any of the 0,1,2,3,4 bits on
-    # which correspond to: Fill, Dilated Cloud, Cirurs, Cloud, Cloud shadow
-    # i.e. we want to keep pixels where the bitwiseAnd with 11111 is 0:
-    qa_mask = img.select('QA_PIXEL').bitwiseAnd(int('11111',2)).eq(0)
-    # Mask any over-saturated pixel as well: 
-    saturation_mask = img.select('QA_RADSAT').eq(0)
-    return img.updateMask(qa_mask).updateMask(saturation_mask)
-
-
-def l8c02_add_inputs(img):
-    """
-    Adds the "albedo", "NDVI", "LAI", and "radiometric_temperature" bands
-    Originaly built for Landsat 8 (Collection 02) images, 
-    useful as is for Landsat 9 images
-    Updated to work with Landsat 7 images as well
-    (by simply renaming the bands on the fly)
-
-    Albedo: shortwave albedo using the empirical coefficients of Liang (2001)
-    LST: ST_B10 for "radiometric_temperature" 
-    LAI: Houborg and McCabe (2018) cubist hybrid trained model
-    """
-    import ee
-    from geeet.vegetation import lai_houborg2018, compute_lai
-
-    warnings.warn(
-                    "l8c02_add_inputs is deprecated. "
-                    "Use `landsat.collection` instead.",
-                    FutureWarning
-                )
-
-    # blue, green, red, nir, swir1, swir2, thermal:
-    bands_l8 = ee.List(['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10'])
-    bands_l7 = ee.List(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7', 'ST_B6'])
-
-    spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
-    bands = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),
-    bands_l7,
-    bands_l8)
-
-    img_renamed = img.select(bands, bands_l8) 
-    # ^^ force band names to l8 names
-
-    albedo = albedo_liang(img_renamed)
-    albedo = constrain_range(albedo)
-    albedo_vis = albedo_liang_vis(img_renamed)
-    albedo_vis = constrain_range(albedo_vis)
-    albedo_nir = albedo_liang_nir(img_renamed)
-    albedo_nir = constrain_range(albedo_nir)
-    ndvi = img_renamed.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
-    lst = img_renamed.select('ST_B10').rename('radiometric_temperature')
-
-    # Lai - Houborg 2018 cubist trained model:
-    bands = ['SR_B2', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']
-    blue = img_renamed.select(bands[0])
-    red = img_renamed.select(bands[1])
-    nir = img_renamed.select(bands[2])
-    swir1 = img_renamed.select(bands[3])
-    swir2 = img_renamed.select(bands[4])
-    
-    #lai = compute_lai(ndvi)  # simple model
-    lai = lai_houborg2018(
-        blue = blue, red = red, nir = nir, swir1=swir1, swir2=swir2
-    ).rename('LAI')
-    lai = constrain_range_lai(lai)
-    return img.addBands(albedo).addBands(albedo_vis).addBands(albedo_nir)\
-        .addBands(ndvi).addBands(lst).addBands(lai)
