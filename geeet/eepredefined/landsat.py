@@ -206,6 +206,7 @@ def collection(
     albedo:Union[None, Literal["liang2001", "tasumi2008"]] = "liang2001", 
     rad_temp = True,
     cfmask = True, 
+    era5:bool = False,
     lai:Union[None,Literal["log-linear", "houborg2018"]]=None,
 )-> ee.ImageCollection:
     """Prepares a merged landsat collection
@@ -235,6 +236,7 @@ def collection(
             
         rad_temp: Include radiometric_temperature (e.g., required for TSEB) as an additional band. Defaults to True. 
         cfmask: Include cloud_cover as an additional band. Defaults to True. 
+        era5: Include ERA5 meteorology. Defaults to False. 
         lai: None, "log-linear", or "houborg2018":
         
             * None: do not include LAI
@@ -320,6 +322,9 @@ def collection(
         if lai=="houborg2018":
             collection = collection.map(add_lai_houborg2018)
 
+    if era5:
+        # TODO include here the ERA5 join.
+        pass
     return collection
 
 
@@ -336,6 +341,77 @@ def mapped_collection(workflow:List[Callable], *args, **kwargs):
         coll = coll.map(f)
     return coll
 
+
+def mapped_reduced(workflow:List[Callable], 
+                   feature_collection, landsat_kwargs, reducer_kwargs, 
+                   **kwargs):
+    """Map a custom algorithm defined by `workflow` onto a landsat collection 
+    and reduce it (ee.ImageCollection-> ee.FeatureCollection)
+
+    Args: 
+    - workflow: A list of mappable functions
+    - feature_collection: The feature collection use to reduce the image collection.
+    - landsat_kwargs: Keyword arguments for `landsat.collection`
+    - reducer_kwargs: Keyword arguments for `ee.Reducer.mean`
+    - **kwargs: Keyword arguments for `reducers.image_collection`
+    """
+    from .reducers import image_collection
+    return image_collection(feature_collection,
+        mapped_collection(workflow, **landsat_kwargs),
+        reducer_kwargs=reducer_kwargs,
+        **kwargs
+    )
+
+def mapped_export(workflow:List[Callable], 
+                   feature_collection, 
+                   landsat_kwargs, 
+                   reducer_kwargs, 
+                   export_kwargs,
+                   to:Literal["drive","cloudStorage"]= None,
+                   **kwargs):
+    """Map a custom algorithm defined by `workflow` onto a landsat collection,
+    reduce it (ee.ImageCollection-> ee.FeatureCollection), and export it
+    either to drive or cloudStorage
+
+    Args: 
+    - workflow: A list of mappable functions
+    - feature_collection: The feature collection use to reduce the image collection.
+    - landsat_kwargs: Keyword arguments for `landsat.collection`
+    - reducer_kwargs: Keyword arguments for `ee.Reducer.mean`
+    - export_kwargs: keyword arguments for ee.batch.Export.to(Drive | cloudStorage)
+    - to: where to export: "drive" or "cloudStorage"
+    - **kwargs: Keyword arguments for `reducers.image_collection`
+    """
+    output = mapped_reduced(workflow,
+                    feature_collection,
+                    landsat_kwargs,
+                    reducer_kwargs,
+                    **kwargs
+                    )
+    feature_properties=kwargs.get('feature_properties', [])
+    img_properties=kwargs.get('img_properties', [])
+    mean_bands = kwargs.get('mean_bands', [])
+    sum_bands = kwargs.get('sum_bands', [])
+    selectors = (["date"]+
+               feature_properties +
+               img_properties+
+               mean_bands+
+               sum_bands
+               )
+    if to=="drive":
+        task = ee.batch.Export.table.toDrive(
+            collection=output,
+            selectors=selectors,
+            **export_kwargs
+        )
+    if to=="cloudStorage":
+        task = ee.batch.Export.table.toCloudStorage(
+            collection=output,
+            selectors=selectors,
+            **export_kwargs
+        )
+    task.start()
+    return task
 
 def geesebal_compatibility(img:ee.Image)->ee.Image:
     """
