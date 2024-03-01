@@ -193,6 +193,10 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         time = Number(img.get('time'))
         doy = Number(img.get('doy'))
         Vza = Number(img.get('viewing_zenith')) # Viewing Zenith angle (0 for Landsat)
+        zu = Number(img.get("zU"))  # Optionally get from img properties
+        zU = zu if zu else zU   # otherwise fallback to kwarg
+        zt = Number(img.get("zU"))  # Optionally get from img properties
+        zT = zt if zt else zT   # otherwise fallback to kwarg
         # Optional
         #CH = img.select('canopy_height') # TODO: check if band exists
         #Rn = img.select('net_radiation') # TODO: check if exists, then skip calculation of Rn from Sdn, Ldn
