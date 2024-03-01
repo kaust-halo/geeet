@@ -2,6 +2,7 @@
 Optional module to define some useful ee functions related to Landsat images processing. 
 """
 import ee, datetime, warnings
+import geeet
 from typing import Union, Any, Dict, List, Literal, Callable
 
 def scale_SR(img:ee.Image)->ee.Image:
@@ -208,6 +209,7 @@ def collection(
     cfmask = True, 
     era5:bool = False,
     lai:Union[None,Literal["log-linear", "houborg2018"]]=None,
+    timeZone:str = "UTC"
 )-> ee.ImageCollection:
     """Prepares a merged landsat collection
 
@@ -236,7 +238,7 @@ def collection(
             
         rad_temp: Include radiometric_temperature (e.g., required for TSEB) as an additional band. Defaults to True. 
         cfmask: Include cloud_cover as an additional band. Defaults to True. 
-        era5: Include ERA5 meteorology. Defaults to False. 
+        era5: Include ERA5 meteorology. Defaults to False. Required for a landsat-ERA5 TSEB workflow.
         lai: None, "log-linear", or "houborg2018":
         
             * None: do not include LAI
@@ -245,7 +247,8 @@ def collection(
                 NDVI will be included even if ndvi is set to False.  
             * "houborg2018": Include LAI as an additional band using the multi-spectral rule-based
                 relationship from Houborg et al., 2018
-        
+        timeZone: see https://www.joda.org/joda-time/timezones.html. Used to set the
+        "time" property in the image. 
     Returns: ee.ImageCollection
     """
     import ee
@@ -323,10 +326,46 @@ def collection(
             collection = collection.map(add_lai_houborg2018)
 
     if era5:
-        # TODO include here the ERA5 join.
-        pass
+        ## Meteorogical data from ECMWF collection -- hourly
+        # https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_LAND_HOURLY#bands)
+        # see geeet.eepredefined.py for more details. 
+        meteo_bands = geeet.eepredefined.MeteoBands.ECMWF_ERA5_HOURLY_TSEB
+        meteo_prep = geeet.eepredefined.MeteoPrep.ECMWF_ERA5_HOURLY_TSEB
+    
+        meteo_collection = (ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY')
+            .filterDate(date_start, date_end)
+            .select(*meteo_bands)
+            .map(meteo_prep))
+    
+        collection = geeet.eepredefined.join.landsat_ecmwf(
+            collection, meteo_collection)
+
+        # Set ERA5 measuring heights (zU, zT)
+        def set_Z(img):
+            return img.set(dict(zU=10, zT=2))
+
+        collection = collection.map(set_Z)
+
+    # Set additional image properties
+    def set_additional_properties(img):
+        d = ee.Date(img.date())
+        doy = d.getRelative('day','year').add(1)  # from 0-based to 1-based. 
+        time = d.getFraction('day', timeZone=timeZone).multiply(24)
+        return img.set(dict(doy=doy, time=time, 
+                            viewing_zenith=0) # Landsat has nadir view.
+                            )
+    
+    collection = collection.map(set_additional_properties)
+
     return collection
 
+def tseb_series(**kwargs)->Callable:
+    """geeet.tseb tseb_series wrapper
+    """
+    from geeet.tseb import tseb_series as t
+    def f(img):
+        return t(img, **kwargs)
+    return f
 
 def mapped_collection(workflow:List[Callable], *args, **kwargs):
     """Map a custom algorithm defined by `workflow` onto a landsat collection.
