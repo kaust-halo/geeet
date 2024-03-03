@@ -252,6 +252,7 @@ def collection(
     Returns: ee.ImageCollection
     """
     import ee
+    from .join import landsat_ecmwf
     from .parsers import feature_collection
 
     region = feature_collection(region)
@@ -337,7 +338,7 @@ def collection(
             .select(*meteo_bands)
             .map(meteo_prep))
     
-        collection = geeet.eepredefined.join.landsat_ecmwf(
+        collection = landsat_ecmwf(
             collection, meteo_collection)
 
         # Set ERA5 measuring heights (zU, zT)
