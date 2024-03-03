@@ -367,6 +367,16 @@ def tseb_series(**kwargs)->Callable:
         return t(img, **kwargs)
     return f
 
+
+def extrapolate_LE(img):
+    """
+    Mappable function to extrapolate instantaneous LE to ET (mm/day)
+    """
+    R = geeet.solar.rad_ratio(img)
+    LE = img.select("LE")
+    ET = LE.multiply(R).rename("ET")
+    return img.addBands(ET)
+
 def mapped_collection(workflow:List[Callable], *args, **kwargs):
     """Map a custom algorithm defined by `workflow` onto a landsat collection.
 
@@ -454,10 +464,17 @@ def mapped_export(workflow:List[Callable],
 
 def geesebal_compatibility(img:ee.Image)->ee.Image:
     """
-    Mappable function to ensure compatibility with geeSEBAL (expects Landsat C01).
+    Mappable function to ensure compatibility with geeSEBAL
+
+    - Optical bands are expected to have a 10000 scale factor, and named
+    "B", "GR", "R", "NIR", "SWIR_1", "SWIR_2"
+    - Albedo is expected as "ALFA"
+    - The thermal band is expected to have a 10 scale factor, and named
+    "BRT"
+    - The image is expected to have the SOLAR_ZENITH_ANGLE and SATELLITE properties
+    (as in Collection 01)
+    - "T_RAD" is expected in W/(m^2*sr*um)/DN units
     """
-    # geeSEBAL expects B, GR, R, NIR, SWIR_1, SWIR_2 bands 
-    # with the C01 scale (1/10000) 
     band_names = ["B", "GR", "R", "NIR", "SWIR_1", "SWIR_2"]
     oli_names = ["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"]
     etm_names = ["SR_B1", "SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B7"]
@@ -466,14 +483,10 @@ def geesebal_compatibility(img:ee.Image)->ee.Image:
     normalized = img.select(sel_bands).rename(band_names).multiply(10000)  
 
     return (img
-        # geeSEBAL expects the T_RAD band in W/(m^2*sr*um)/DN
         .addBands(img.select("ST_TRAD").multiply(0.001).rename("T_RAD")) 
-        .addBands(img.select("albedo").rename("ALFA"))   # geesebal expects ALFA
-        # geeSEBAL expects BRT with the C01 scale (1/10)
-        .addBands(img.select("radiometric_temperature").multiply(10).rename("BRT"))  # geesebal expects BRT (ST_B6 | ST_B10)
-        .addBands(normalized) # SR_* bands
-        # geeSEBAL expects SOLAR_ZENITH_ANGLE (C01) -- not available in C02 (SUN_ELEVATION instead)
-        # and SATELLITE (renamed to SPACECRAFT_ID in C02)
+        .addBands(img.select("albedo").rename("ALFA"))   
+        .addBands(img.select("radiometric_temperature").multiply(10).rename("BRT"))
+        .addBands(normalized) 
         .set({
             "SOLAR_ZENITH_ANGLE": ee.Number(90).subtract(img.get("SUN_ELEVATION")),
             "SATELLITE": img.get("SPACECRAFT_ID"),
