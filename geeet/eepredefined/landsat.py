@@ -367,6 +367,16 @@ def tseb_series(**kwargs)->Callable:
         return t(img, **kwargs)
     return f
 
+
+def extrapolate_LE(img):
+    """
+    Mappable function to extrapolate instantaneous LE to ET (mm/day)
+    """
+    R = geeet.solar.rad_ratio(img)
+    LE = img.select("LE")
+    ET = LE.multiply(R).rename("ET")
+    return img.addBands(ET)
+
 def mapped_collection(workflow:List[Callable], *args, **kwargs):
     """Map a custom algorithm defined by `workflow` onto a landsat collection.
 
