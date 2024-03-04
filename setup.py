@@ -15,8 +15,15 @@ here = op.abspath(op.dirname(__file__))
 with io.open(op.join(here, "requirements.txt"), encoding="utf-8") as f:
     all_reqs = f.read().split("\n")
 
+with io.open(op.join(here, "requirements_dev.txt"), encoding="utf-8") as f:
+    dev_reqs = [x.strip() for x in f.read().split("\n")]
+
 install_requires = [x.strip() for x in all_reqs if "git+" not in x]
 dependency_links = [x.strip().replace("git+", "") for x in all_reqs if "git+" not in x]
+
+extras_requires = {
+    "all": dev_reqs
+}
 
 requirements = [ ]
 
@@ -39,6 +46,7 @@ setup(
     ],
     description="Evapotranspiration (ET) models for use in python and with integration into Google Earth Engine.",
     install_requires=install_requires,
+    extras_require=extras_requires,
     dependency_links=dependency_links,
     license="MIT license",
     long_description=readme,
