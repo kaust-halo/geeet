@@ -4,6 +4,7 @@
 
 
 import unittest
+import xarray as xr
 
 from geeet import geeet
 
@@ -40,6 +41,19 @@ class TestGeeet(unittest.TestCase):
         self.tseb_series_ndarray = geeet.tseb.tseb_series(
             **{key:np.array(value) for key,value in self.tseb_series_inputs.items()},
             **self.tseb_series_inputs_scalar
+        )
+        self.tseb_series_inputs_xr=xr.merge([
+                xr.DataArray(self.tseb_series_inputs["Alb"]).rename("albedo"),
+                xr.DataArray(self.tseb_series_inputs["NDVI"]).rename("NDVI"),
+                xr.DataArray(self.tseb_series_inputs["Tr"]).rename("radiometric_temperature"),
+                xr.DataArray(self.tseb_series_inputs["Ta"]).rename("air_temperature"),
+                xr.DataArray(self.tseb_series_inputs["P"]).rename("surface_pressure"),
+                xr.DataArray(self.tseb_series_inputs["U"]).rename("wind_speed"),
+                xr.DataArray(self.tseb_series_inputs["Sdn"]).rename("solar_radiation"),
+                xr.DataArray(self.tseb_series_inputs["Ldn"]).rename("thermal_radiation"),
+            ])            
+        self.tseb_series_xr = geeet.tseb.tseb_series(
+            self.tseb_series_inputs_xr, **self.tseb_series_inputs_scalar
         )
 
     def tearDown(self):
@@ -96,6 +110,29 @@ class TestGeeet(unittest.TestCase):
             10
         )
 
+    def test_tseb_series_xr_consistency(self):
+        """Test tseb_series outputs consistency (xr.DataArray)."""
+        residuals = self.tseb_series_xr.assign(
+                LEr = lambda x: x.LE-x.LEc-x.LEs,
+                Rnr = lambda x: x.Rn-x.Rnc-x.Rns
+        )
+        self.assertListAlmostEqual(
+            residuals.LEr.values,
+            [0,0], 10
+        )
+        self.assertListAlmostEqual(
+            residuals.Rnr.values,
+            [0,0], 10
+        )
+
+    def test_tseb_series_xr_energy_balance(self):
+        """Test tseb_series energy balance (xr.DataArray)."""
+        self.assertListAlmostEqual(
+            self.tseb_series_xr.assign(
+                EB = lambda x: x.Rn-x.LEc-x.LEs-x.G-x.Hc-x.Hs,
+        ).EB.values,
+            [0,0], 10
+        )
 
 if __name__ == "__main__":
     unittest.main()
