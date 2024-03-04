@@ -35,7 +35,7 @@ If you want to install the latest development version hosted on github, run this
 pip install git+https://github.com/kaust-halo/geeet
 ```
 
-*geeet* is alsao available on [conda-forge](https://anaconda.org/conda-forge/geeet). To install *geeet* using conda, run this command:
+*geeet* is also available on [conda-forge](https://anaconda.org/conda-forge/geeet). To install *geeet* using conda, run this command:
 
 ```bash
 conda install -c conda-forge geeet
