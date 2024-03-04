@@ -47,6 +47,11 @@ setup(
     keywords='geeet',
     name='geeet',
     packages=find_packages(include=['geeet', 'geeet.*']),
+    entry_points={
+      'console_scripts': [
+         'geeet-ctseb=geeet.eepredefined.cmd_utils:ctseb',
+      ],
+   },
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,

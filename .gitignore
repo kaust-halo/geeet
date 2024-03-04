@@ -1,3 +1,6 @@
 dev
 env
+dist
+build
+*.egg-info
 *.pyc
