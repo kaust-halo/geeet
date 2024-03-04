@@ -60,7 +60,7 @@ def add_ndvi(img:ee.Image)->ee.Image:
     bands: nir, red
     """
     band_names = ["SR_B5", "SR_B4"] 
-    bands_l7 = ["SR_B4", "SR_3"]
+    bands_l7 = ["SR_B4", "SR_B3"]
     spacecraft_id = ee.String(img.get('SPACECRAFT_ID'))
     sel_bands = ee.Algorithms.If(spacecraft_id.equals('LANDSAT_7'),bands_l7, band_names)
     ndvi = (img.select(sel_bands, band_names)
