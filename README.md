@@ -35,13 +35,13 @@ If you want to install the latest development version hosted on github, run this
 pip install git+https://github.com/kaust-halo/geeet
 ```
 
-*geeet* is alsao available on [conda-forge](https://anaconda.org/conda-forge/geeet). To install *geeet* using conda, run this command:
+*geeet* is also available on [conda-forge](https://anaconda.org/conda-forge/geeet). To install *geeet* using conda, run this command:
 
 ```bash
 conda install -c conda-forge geeet
 ```
 
-The only requirement is a modern python installation (e.g. >3.6) and [numpy](https://numpy.org/). However, to test any of the *GEE* capabilities of *geeet* you will need to install the Python earthengine API (available through [pip](https://pypi.org/project/earthengine-api/) and [conda](https://anaconda.org/conda-forge/earthengine-api)), and have a [GEE account](https://earthengine.google.com/signup/). 
+The only requirement is a modern python installation (e.g. >3.7) and [numpy](https://numpy.org/). However, to test any of the *GEE* capabilities of *geeet* you will need to install the Python earthengine API (available through [pip](https://pypi.org/project/earthengine-api/) and [conda](https://anaconda.org/conda-forge/earthengine-api)), and have a [GEE account](https://earthengine.google.com/signup/). 
 
 ## First time use: running a toy example
 
