@@ -4,7 +4,7 @@
 
 
 import unittest
-#import xarray as xr
+import xarray as xr
 
 from geeet import geeet
 
