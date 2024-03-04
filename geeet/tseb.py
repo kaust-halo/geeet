@@ -608,7 +608,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             # Update fluxes (H, L): 
             LEs = update_var(LEs, pixelsToUpdate, LEsu)
             LEc = update_var(LEc, pixelsToUpdate, LEcu)
-            LE = update_var(LE, pixelsToUpdate, LE)
+            LE = update_var(LE, pixelsToUpdate, LEu)
             Hs = update_var(Hs, pixelsToUpdate, Hsu)
             Hc = update_var(Hc, pixelsToUpdate, Hcu)
             H = update_var(H, pixelsToUpdate, Hu)
