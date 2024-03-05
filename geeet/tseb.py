@@ -195,7 +195,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         Vza = Number(img.get('viewing_zenith')) # Viewing Zenith angle (0 for Landsat)
         zu = Number(img.get("zU"))  # Optionally get from img properties
         zU = zu if zu else zU   # otherwise fallback to kwarg
-        zt = Number(img.get("zU"))  # Optionally get from img properties
+        zt = Number(img.get("zT"))  # Optionally get from img properties
         zT = zt if zt else zT   # otherwise fallback to kwarg
         # Optional
         #CH = img.select('canopy_height') # TODO: check if band exists
@@ -577,11 +577,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             ### Update M-O length (L) and friction velocity
             L = MOL(ustar, Ta, rho, cp, Lambda, Hu, LEu) 
             ustaru = compute_ustar(U, zU, L, rough)
-
-            if hasattr(ustar, "where"):
-                ustar = ustar.where(~pixelsToUpdate, ustaru)  
-            else:
-                ustar = np.where(pixelsToUpdate, ustaru, ustar)
+            ustar = update_var(ustar, pixelsToUpdate, ustaru)
 
             ### Update resistances
             resistu = RN95(U, CH, rough, LAI, Leaf_width, zU, zT, Ustar=ustar, L=L)
