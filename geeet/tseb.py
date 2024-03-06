@@ -381,7 +381,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             Td1 = Tclin.multiply(Image(1).add(rso.divide(rao)))
             Td2 = (Hco.multiply(rxo).divide(rho.multiply(cp))).multiply(Image(1).add(rso.divide(rxo)).add(rso.divide(rao)))
             Td3 = Ta.multiply(rso.divide(rao))
-            Td = Td1.add(Td2).subtract(Td3)
+            Td = Td1.subtract(Td2).subtract(Td3)
             # N95 equation A.11 (deltaTc), i.e. correction to the linear approximation of Tc:
             dTc_num = (Tr.pow(4)).subtract(f_theta.multiply(Tclin.pow(4))).subtract((Image(1).subtract(f_theta)).multiply(Td.pow(4)))
             dTc_denom1 = (Td.pow(3)).multiply(rso.divide(rao).add(1)).multiply(4).multiply(Image(1).subtract(f_theta))
