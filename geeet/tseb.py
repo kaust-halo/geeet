@@ -216,6 +216,10 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             Ldn = img['thermal_radiation'] # in W/m2
             if "LAI" in img:
                 LAI = img['LAI']
+            if "latitude" in img:
+                latitude = img["latitude"]
+            if "longitude" in img:
+                longitude = img["longitude"]
         else:
             # Coerce inputs to np.ndarray if needed
             Tr = to_ndarray(Tr)

@@ -192,10 +192,16 @@ def compute_solar_angles(doy = None, time = None, longitude = None, latitude = N
         cos_azimuth = np.sin(latitude*DTOR)*cos_zenith - np.sin(solar_declination)
         cos_azimuth = cos_azimuth / (np.cos(latitude*DTOR)*np.sin(zenith*DTOR))
         azimuth = np.arccos(cos_azimuth)*RTOD
-        if hour_angle>0:
-            azimuth = (azimuth+180)%360
+
+        azimuth1 = (azimuth+180)%360
+        azimuth2 = (540-azimuth)%360
+
+        if hasattr(azimuth, "where"):
+            azimuth = azimuth.where(~(hour_angle>0), azimuth1)
+            azimuth = azimuth.where(hour_angle>0, azimuth2)  
         else:
-            azimuth = (540-azimuth)%360
+            azimuth = np.where(hour_angle>0, azimuth1, azimuth2)
+
         solar_angles = [zenith, azimuth]
 
     return solar_angles
