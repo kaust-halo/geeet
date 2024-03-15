@@ -93,7 +93,7 @@ def update_var(var, pixelsToUpdate, updated_var):
 
 def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence over numpy arrays)
                 Tr=None, NDVI=None, LAI = None,  # numpy arrays
-                P = None, Ta = None, U = None, Sdn = None, Ldn = None, Rn = None,
+                P = None, Ta = None, Td = None, U = None, Sdn = None, Ldn = None, Rn = None,
                 Alb = None,
                 doy = None, time = None, Vza = None, longitude = None, latitude=None,
                 CH = 0.3, F_g = 1.0, k_par = 0.5, k_rns=0.45,    
@@ -186,6 +186,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
         NDVI = img.select('NDVI')
         Tr = img.select('radiometric_temperature') # in K
         Ta = img.select('air_temperature')   # in K
+        Td = img.select('dewpoint_temperature')   # in K
         P = img.select('surface_pressure')   # in Pa
         U = img.select('wind_speed')         # in m/s
         Sdn = img.select('solar_radiation')  # in W/m2
@@ -210,6 +211,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             NDVI = img['NDVI']
             Tr = img['radiometric_temperature'] # in K
             Ta = img['air_temperature']   # in K
+            Td = img['dewpoint_temperature']   # in K
             P = img['surface_pressure']   # in Pa
             U = img['wind_speed']         # in m/s
             Sdn = img['solar_radiation']  # in W/m2
@@ -226,6 +228,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             NDVI = to_ndarray(NDVI)
             P = to_ndarray(P)
             Ta = to_ndarray(Ta)
+            Td = to_ndarray(Td)
             U = to_ndarray(U)
             Sdn = to_ndarray(Sdn)
             Ldn = to_ndarray(Ldn)
@@ -255,7 +258,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
                                                                       #                                or exp(-kLAI/sqrt(2cos(Zenith))))
                                                                       # here in TSEB we use the second parameterization (use_zenith = True)
     G = compute_g(doy = doy, time=time, Rns = Rns, G_params = G_params, longitude=longitude) # Soil heat flux (Santanello et al., 2003)
-    met_params = compute_met_params(Ta, P) # computes the following meteorological parameters:
+    met_params = compute_met_params(Ta, Td, P) # computes the following meteorological parameters:
                                              # q: specific humidity (dimensionless)
                                              # ea: water vapor pressure, in Pa
                                              # rho: air density, in kg m-3
