@@ -19,10 +19,17 @@ def teten(T):
     '''
     Compute Teten's formula for saturation water vapour pressure  (esat (T)) in Pa 
     with parameters set according to Buck (1981) for saturation over water. 
-    Reference: 
-    https://www.ecmwf.int/sites/default/files/elibrary/2016/17117-part-iv-physical-processes.pdf#subsection.7.2.1    
+
+    Note that dewpoint temperature (Td) is defined as the temperature at which a sample of air
+    with vapor pressure *e* must be cooled to become saturated, 
+        e = esat(Td)
+    Therefore this formula can be used to get actual water vapor pressure (ea) from Td. 
 
     Input: T (numpy array or ee.Image) Temperature in Kelvin
+
+    References:
+    https://www.ecmwf.int/sites/default/files/elibrary/2016/17117-part-iv-physical-processes.pdf#subsection.7.2.1 
+    https://doi.org/10.1016/B978-0-12-386910-4.00002-0    
     '''
     if is_img(T):
         T1 = T.subtract(T0) # in K
@@ -32,29 +39,31 @@ def teten(T):
         esat = a1*np.exp(a3*(T-T0)/(T-a4))
     return esat
 
-def specific_humidity(T,P):
+def specific_humidity(esat,P):
     '''
+    Saturation specific humidity
+
     Input: (ee.Images or np.arrays):
+        - esat: saturation water vapor pressure
         - P: surface pressure in Pascals
-        - T: temperature in Kelvin 
     Output: (ee.Image or np.array):
         - Q: specific humidity 
+
+    References:
+    https://www.ecmwf.int/sites/default/files/elibrary/2016/17117-part-iv-physical-processes.pdf#subsection.7.2.1 
     '''
-    if is_img(T):
-        esat = teten(T)
+    if is_img(esat):
         denom = P.subtract(esat.multiply(1-epsilon))
         Q = esat.multiply(epsilon).divide(denom)
     else:
-        esat = teten(T)
         Q = epsilon*esat/(P-(1-epsilon)*esat)
     return Q
 
-def relative_humidity(temperature, dewpoint_temperature, pressure, band_name='relative_humidity'):
+def relative_humidity(temperature, dewpoint_temperature, band_name='relative_humidity'):
     '''
     Input: (ee.Images or np.arrays):
         - temperature, in Kelvin
         - dewpoint_temperature, in Kelvin
-        - pressure: surface pressure in Pascals
     Output: (ee.Image or np.array):
         - RH: relative humidity(%)
     
@@ -62,14 +71,13 @@ def relative_humidity(temperature, dewpoint_temperature, pressure, band_name='re
     https://www.ecmwf.int/sites/default/files/elibrary/2016/17117-part-iv-physical-processes.pdf
     '''
     if is_img(temperature):
-        Q = specific_humidity(dewpoint_temperature,pressure)
+        ea = teten(dewpoint_temperature)
         esat = teten(temperature)
-        denom = Q.multiply(1/epsilon -1).add(1).multiply(esat)
-        RH = pressure.multiply(Q).multiply(100/epsilon).divide(denom).rename(band_name)
+        RH = ea.multiply(100).divide(esat).rename(band_name)
     else:
+        ea = teten(dewpoint_temperature)
         esat = teten(temperature)
-        Q = specific_humidity(dewpoint_temperature,pressure)
-        RH = (pressure*Q*100/epsilon)/(esat*(1+Q*((1/epsilon) - 1)))
+        RH = 100*ea/esat
     return RH
 
 def vpd(RH, Temp_K, band_name=None):
@@ -124,14 +132,15 @@ def LatHeatVap(Temp_K):
         L = 2.501 - (2.361e-3*(Temp_K-273.15)) # at 20C this is ~2.45 MJ kg-1
     return L
 
-def compute_met_params(temperature, pressure):
+def compute_met_params(temperature, dewpoint_temperature, pressure):
     """
     Calculates several temperature and/or pressure-dependent
     parameters related to heat flux in air,
     which are commonly used in ET models
 
     Inputs (ee.Image or np.arrays):
-    - temperature: air temperature at reference height (Kelvin).
+    - temperature: air temperature at reference height (Kelvin)
+    - dewpoint_temperature: Dewpoint temperature at reference height (Kelvin)
     - pressure: total air pressure (dry air + water vapor) (Pa)
     
     Outputs: (ee.Image with following bands, OR list of np.arrays:)
@@ -143,9 +152,13 @@ def compute_met_params(temperature, pressure):
     - lambda (latent heat of vaporization), in MJ kg-1
     - psicr (psicrometric constant), in Pa K-1
     - taylor (=s/(s+psicr)), in Pa K-1
+
+    References
+    - Hydrology - An Introduction (Brutsaert 2005)
+    - https://www.ecmwf.int/sites/default/files/elibrary/2016/17117-part-iv-physical-processes.pdf#section.2.7 
     """
-    q = specific_humidity(temperature, pressure) 
-    ea = teten(temperature)  # in Pa
+    ea = teten(dewpoint_temperature)  # in Pa
+    q = specific_humidity(ea, pressure)
     Lambda = LatHeatVap(temperature)  # in MJ kg-1
 
     if is_img(pressure):

@@ -21,6 +21,7 @@ class TestGeeet(unittest.TestCase):
             NDVI = [0.8, 0.8],
             P = [95500, 95500],
             Ta = [293, 293], 
+            Td = [274, 274],
             U = [5,5], 
             Sdn = [800, 400], 
             Ldn = [300, 200]
@@ -47,6 +48,7 @@ class TestGeeet(unittest.TestCase):
                 xr.DataArray(self.tseb_series_inputs["NDVI"]).rename("NDVI"),
                 xr.DataArray(self.tseb_series_inputs["Tr"]).rename("radiometric_temperature"),
                 xr.DataArray(self.tseb_series_inputs["Ta"]).rename("air_temperature"),
+                xr.DataArray(self.tseb_series_inputs["Td"]).rename("dewpoint_temperature"),
                 xr.DataArray(self.tseb_series_inputs["P"]).rename("surface_pressure"),
                 xr.DataArray(self.tseb_series_inputs["U"]).rename("wind_speed"),
                 xr.DataArray(self.tseb_series_inputs["Sdn"]).rename("solar_radiation"),
@@ -61,13 +63,13 @@ class TestGeeet(unittest.TestCase):
 
     def test_tseb_series_list_consistency(self):
         """Test tseb_series outputs consistency (list)."""
-        self.assertCountEqual(self.tseb_series_list["LE"] -
+        self.assertListAlmostEqual(self.tseb_series_list["LE"] -
             self.tseb_series_list["LEs"] - self.tseb_series_list["LEc"],
-            [0,0]
+            [0,0], 10
         )
-        self.assertCountEqual(self.tseb_series_list["Rn"]-
+        self.assertListAlmostEqual(self.tseb_series_list["Rn"]-
             self.tseb_series_list["Rns"] - self.tseb_series_list["Rnc"],
-            [0,0]
+            [0,0], 10
         )
 
     def assertListAlmostEqual(self, list1, list2, tol):
@@ -89,13 +91,13 @@ class TestGeeet(unittest.TestCase):
 
     def test_tseb_series_np_consistency(self):
         """Test tseb_series outputs consistency (np.array)."""
-        self.assertCountEqual(self.tseb_series_ndarray["LE"] -
+        self.assertListAlmostEqual(self.tseb_series_ndarray["LE"] -
             self.tseb_series_ndarray["LEs"] - self.tseb_series_ndarray["LEc"],
-            [0,0]
+            [0,0], 10
         )
-        self.assertCountEqual(self.tseb_series_ndarray["Rn"] -
+        self.assertListAlmostEqual(self.tseb_series_ndarray["Rn"] -
             self.tseb_series_ndarray["Rns"] - self.tseb_series_ndarray["Rnc"],
-            [0,0]
+            [0,0],10
         )
 
     def test_tseb_series_np_energy_balance(self):

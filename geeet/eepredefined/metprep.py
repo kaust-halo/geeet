@@ -3,10 +3,15 @@ Optional module defining useful ee datasets, bands, and
 functions for mapping to an Image Collection
 """
 class MeteoBands:
+    """
+    Class to rename bands from 
+    https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_LAND_HOURLY#bands
+    """
     ECMWF_ERA5_HOURLY_TSEB=(
     [
     'surface_pressure', 
     'temperature_2m', 
+    'dewpoint_temperature_2m',
     'u_component_of_wind_10m',
     'v_component_of_wind_10m',
     'surface_solar_radiation_downwards_hourly',
@@ -15,6 +20,7 @@ class MeteoBands:
     [
     'surface_pressure',
     'air_temperature', 
+    'dewpoint_temperature',
     'u_component_of_wind_10m',
     'v_component_of_wind_10m',
     'surface_solar_radiation_downwards_hourly',
