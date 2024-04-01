@@ -123,6 +123,7 @@ def ptjpl_arid(img=None, # ee.Image with inputs as bands (takes precedence over 
         band_names = img.bandNames()
         NDVI = img.select('NDVI')
         Ta = img.select('air_temperature')
+        Td = img.select('dewpoint_temperature')
         P = img.select('surface_pressure')
         F_aparmax = img.select('fapar_max')
         time = img.get('time')
@@ -154,7 +155,7 @@ def ptjpl_arid(img=None, # ee.Image with inputs as bands (takes precedence over 
     ft = compute_ft_arid(Ta)
     f_apar = compute_fapar(NDVI)
     fm = compute_fm(f_apar, F_aparmax)
-    met_params = compute_met_params(Ta, P)  
+    met_params = compute_met_params(Ta, Td, P)  
     fsm = compute_fsm(RH, Ta, Beta)
 
     if is_img(img):
