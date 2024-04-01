@@ -7,7 +7,7 @@ from geeet.common import is_img
 def RN95(U, CH, rough_params, LAI, leaf_width, zU, zT, L=None, Ustar = None, rough_bands = ['ZM','ZH','D0'] , band_names = ['Ra', 'Rs', 'Rx']):
     """
     Calculate the original TSEB resistances from Norman et al., 1995 (N95) 
-#//description 
+    
     Inputs:
         - U: wind speed in m/s, numpy array or an ee.Image
         - CH: canopy height in m, numpy array or ee.Image 
@@ -98,7 +98,6 @@ def RN95(U, CH, rough_params, LAI, leaf_width, zU, zT, L=None, Ustar = None, rou
         where C1 ~ 90 s-1/2 m-1
         s is the average leaf width
         Udzm is given by equation A.9 and is obtained after computing Uc (Equations B2-B4)
-#//enddescription 
     """
     from geeet.MOST import PsiM as compute_psim
     from geeet.MOST import PsiH as compute_psih
