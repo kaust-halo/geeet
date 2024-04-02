@@ -34,7 +34,7 @@ test_requirements = [ ]
 setup(
     author="Oliver Lopez",
     author_email='lopezv.oliver@gmail.com',
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
@@ -43,6 +43,8 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
     description="Evapotranspiration (ET) models for use in python and with integration into Google Earth Engine.",
     install_requires=install_requires,
