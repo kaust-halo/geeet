@@ -2,6 +2,7 @@
 
 [![image](https://img.shields.io/pypi/v/geeet.svg)](https://pypi.python.org/pypi/geeet)
 [![image](https://img.shields.io/conda/vn/conda-forge/geeet.svg)](https://anaconda.org/conda-forge/geeet)
+![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/geeet.svg)
 [![image](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Evapotranspiration (ET) models for use in python and with integration into Google Earth Engine.**
