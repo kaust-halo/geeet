@@ -55,9 +55,9 @@ class TestGeeet(unittest.TestCase):
                 "solar_radiation": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Sdn"]).reshape(2,1,1)), 
                 "thermal_radiation": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Ldn"]).reshape(2,1,1))
         }, 
-                 coords={'time': np.array(['2024-12-01', '2024-12-02'], dtype='datetime64[ns]'), 
-                         'y': [1], 
-                         'x': [1]})
+                 coords={'time': np.array(['2024-01-01T11:00:00', '2024-01-01T11:00:00'], dtype='datetime64[ns]'), 
+                         'y': [self.tseb_series_inputs_scalar['latitude']], 
+                         'x': [self.tseb_series_inputs_scalar['longitude']]})
          
         self.tseb_series_xr = geeet.tseb.tseb_series(
             self.tseb_series_inputs_xr, **self.tseb_series_inputs_scalar
