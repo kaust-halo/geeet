@@ -124,11 +124,11 @@ class TestGeeet(unittest.TestCase):
                 Rnr = lambda x: x.Rn-x.Rnc-x.Rns
         )
         self.assertListAlmostEqual(
-            residuals.LEr.values,
+            residuals.LEr.values.reshape(2,).tolist(),
             [0,0], 10
         )
         self.assertListAlmostEqual(
-            residuals.Rnr.values,
+            residuals.Rnr.values.reshape(2,).tolist(),
             [0,0], 10
         )
 
@@ -137,7 +137,7 @@ class TestGeeet(unittest.TestCase):
         self.assertListAlmostEqual(
             self.tseb_series_xr.assign(
                 EB = lambda x: x.Rn-x.LEc-x.LEs-x.G-x.Hc-x.Hs,
-        ).EB.values,
+        ).EB.values.reshape(2,).tolist(),
             [0,0], 10
         )
 
