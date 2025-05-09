@@ -5,6 +5,7 @@
 
 import unittest
 import xarray as xr
+import numpy as np
 
 from geeet import geeet
 
@@ -43,17 +44,21 @@ class TestGeeet(unittest.TestCase):
             **{key:np.array(value) for key,value in self.tseb_series_inputs.items()},
             **self.tseb_series_inputs_scalar
         )
-        self.tseb_series_inputs_xr=xr.merge([
-                xr.DataArray(self.tseb_series_inputs["Alb"]).rename("albedo"),
-                xr.DataArray(self.tseb_series_inputs["NDVI"]).rename("NDVI"),
-                xr.DataArray(self.tseb_series_inputs["Tr"]).rename("radiometric_temperature"),
-                xr.DataArray(self.tseb_series_inputs["Ta"]).rename("air_temperature"),
-                xr.DataArray(self.tseb_series_inputs["Td"]).rename("dewpoint_temperature"),
-                xr.DataArray(self.tseb_series_inputs["P"]).rename("surface_pressure"),
-                xr.DataArray(self.tseb_series_inputs["U"]).rename("wind_speed"),
-                xr.DataArray(self.tseb_series_inputs["Sdn"]).rename("solar_radiation"),
-                xr.DataArray(self.tseb_series_inputs["Ldn"]).rename("thermal_radiation"),
-            ])            
+        self.tseb_series_inputs_xr=xr.Dataset({
+                "albedo": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Alb"]).reshape(2,1,1)), 
+                "NDVI": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["NDVI"]).reshape(2,1,1)), 
+                "radiometric_temperature": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Tr"]).reshape(2,1,1)), 
+                "air_temperature": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Ta"]).reshape(2,1,1)), 
+                "dewpoint_temperature": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Td"]).reshape(2,1,1)), 
+                "surface_pressure": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["P"]).reshape(2,1,1)), 
+                "wind_speed": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["U"]).reshape(2,1,1)), 
+                "solar_radiation": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Sdn"]).reshape(2,1,1)), 
+                "thermal_radiation": (('time', 'y', 'x'), np.array(self.tseb_series_inputs["Ldn"]).reshape(2,1,1))
+        }, 
+                 coords={'time': np.array(['2024-01-01T11:00:00', '2024-01-01T11:00:00'], dtype='datetime64[ns]'), 
+                         'y': [self.tseb_series_inputs_scalar['latitude']], 
+                         'x': [self.tseb_series_inputs_scalar['longitude']]})
+         
         self.tseb_series_xr = geeet.tseb.tseb_series(
             self.tseb_series_inputs_xr, **self.tseb_series_inputs_scalar
         )
@@ -119,11 +124,11 @@ class TestGeeet(unittest.TestCase):
                 Rnr = lambda x: x.Rn-x.Rnc-x.Rns
         )
         self.assertListAlmostEqual(
-            residuals.LEr.values,
+            residuals.LEr.values.reshape(2,).tolist(),
             [0,0], 10
         )
         self.assertListAlmostEqual(
-            residuals.Rnr.values,
+            residuals.Rnr.values.reshape(2,).tolist(),
             [0,0], 10
         )
 
@@ -132,7 +137,7 @@ class TestGeeet(unittest.TestCase):
         self.assertListAlmostEqual(
             self.tseb_series_xr.assign(
                 EB = lambda x: x.Rn-x.LEc-x.LEs-x.G-x.Hc-x.Hs,
-        ).EB.values,
+        ).EB.values.reshape(2,).tolist(),
             [0,0], 10
         )
 
