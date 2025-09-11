@@ -21,8 +21,8 @@ geeet.tseb.cite_all() - all references used for this module
 """
 
 import numpy as np
-from geeet.common import is_img, is_xr
-from odc.geo import xr # Use for automatically identify spatial dimensions
+from geeet.common import is_img, is_xr, find_spatial_dims
+
 try: 
     import ee
 except Exception:
@@ -220,7 +220,7 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             if "LAI" in img:
                 LAI = img['LAI']
             # Retrieve latitude and longitude from spatial dimensions
-            spatial_dims = img.odc.spatial_dims
+            spatial_dims = find_spatial_dims(img)
             if len(spatial_dims) == 2:
                 latitude = img[spatial_dims[0]]
                 longitude = img[spatial_dims[1]]
