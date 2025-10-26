@@ -222,10 +222,10 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             # Retrieve latitude and longitude from spatial dimensions
             spatial_dims = find_spatial_dims(img)
             if len(spatial_dims) == 2:
-                latitude = img[spatial_dims[0]]
-                longitude = img[spatial_dims[1]]
+                latitude = latitude if latitude is not None else img[spatial_dims[0]]
+                longitude = longitude if longitude is not None else img[spatial_dims[1]]
 
-            # Retrive day of year and hour of day from time dimension
+            # Retrieve day of year and hour of day from time dimension
             if 'time' in img.dims:
                 doy = img.time.dt.dayofyear
                 time = img['time'].dt.hour + img['time'].dt.minute / 60
