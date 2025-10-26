@@ -21,7 +21,8 @@ geeet.tseb.cite_all() - all references used for this module
 """
 
 import numpy as np
-from geeet.common import is_img, is_xr
+from geeet.common import is_img, is_xr, find_spatial_dims
+
 try: 
     import ee
 except Exception:
@@ -218,10 +219,16 @@ def tseb_series(img=None,    # ee.Image with inputs as bands (takes precedence o
             Ldn = img['thermal_radiation'] # in W/m2
             if "LAI" in img:
                 LAI = img['LAI']
-            if "latitude" in img:
-                latitude = img["latitude"]
-            if "longitude" in img:
-                longitude = img["longitude"]
+            # Retrieve latitude and longitude from spatial dimensions
+            spatial_dims = find_spatial_dims(img)
+            if len(spatial_dims) == 2:
+                latitude = latitude if latitude is not None else img[spatial_dims[0]]
+                longitude = longitude if longitude is not None else img[spatial_dims[1]]
+
+            # Retrieve day of year and hour of day from time dimension
+            if 'time' in img.dims:
+                doy = img.time.dt.dayofyear
+                time = img['time'].dt.hour + img['time'].dt.minute / 60
         else:
             # Coerce inputs to np.ndarray if needed
             Tr = to_ndarray(Tr)
